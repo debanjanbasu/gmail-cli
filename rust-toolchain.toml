@@ -1,0 +1,20 @@
+[toolchain]
+channel = "nightly"
+components = ["clippy", "rustfmt", "rust-src", "rustc-dev", "llvm-tools-preview"]
+targets = [
+    "x86_64-unknown-linux-gnu",
+    "x86_64-unknown-linux-musl",
+    "x86_64-pc-windows-msvc",
+    "aarch64-unknown-linux-gnu",
+    "aarch64-unknown-linux-musl",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+    "wasm32-unknown-unknown",
+]
+profile = "minimal"
+
+[rustfmt]
+config = { tab_spaces = 4, hard_tabs = false, max_width = 100 }
+
+[clippy]
+allow = ["large_futures", "future_not_send"]

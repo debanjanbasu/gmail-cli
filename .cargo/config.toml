@@ -1,0 +1,108 @@
+[build]
+rustflags = [
+    # Unstable features
+    "--cfg", "reqwest_unstable",
+    "--cfg", "hyper_unstable_ffi",
+    "--cfg", "tokio_unstable",
+    
+    # Tokio unstable features
+    "--cfg", "tokio_unstable",
+    
+    # Threading & optimization
+    "-Zthreads=32",
+    
+    # Debug info optimization (smaller binaries)
+    "-Zlocation-detail=none",
+    "-Zfmt-debug=none",
+    
+    # Function merging (requires nightly)
+    "-Zmerge-functions",
+    
+    # Panic handling
+    "-Zunstable-options", "-Cpanic=immediate-abort",
+    
+    # Virtual function elimination (experimental)
+    "-Zvirtual-function-elimination",
+]
+
+# ──────────────────────────────────────────────────────────────────
+# build-std: rebuild core/alloc/std from source with
+# panic_immediate_abort — strips all panic formatting strings.
+# Requires: `rustup component add rust-src`
+# WARNING: panic messages become "panic in a function that cannot
+# unwind" with zero context.
+# ──────────────────────────────────────────────────────────────────
+[unstable]
+build-std = ["std", "panic_abort", "core", "alloc"]
+panic-abort-tests = true
+profile-rustflags = true
+
+# VFE (-Zvirtual-function-elimination) requires nightly + LTO + embed-bitcode=yes,
+# but the current nightly LLVM crashes with "Do not know how to promote this operator!"
+# on bumpalo/core. lto = "fat" in Cargo.toml provides whole-program DCE.
+# Release builds: clear dev flags; CI should set target-cpu per platform.
+# macOS: RUSTFLAGS="-C target-cpu=apple-m1" (M1 baseline for distribution)
+[profile.release]
+rustflags = []
+
+# ──────────────────────────────────────────────────────────────────
+# Per-target optimizations
+# ──────────────────────────────────────────────────────────────────
+
+# WASM target (for future web support)
+[target.wasm32-unknown-unknown]
+rustflags = [
+    "-C", "target-feature=+bulk-memory,+crt-static,+multivalue,+mutable-globals,+nontrapping-fptoint,+reference-types,+sign-ext,+simd128",
+    "-C", "panic=abort",
+    "-C", "link-arg=--export=__heap_base",
+]
+
+# Apple Silicon: native CPU detection for dev, apple-m1 baseline for release.
+[target.aarch64-apple-darwin]
+rustflags = ["-C", "target-cpu=native", "-C", "panic=abort"]
+
+# iOS Simulator
+[target.aarch64-apple-ios-sim]
+rustflags = ["-C", "panic=abort"]
+
+# iOS Device
+[target.aarch64-apple-ios]
+rustflags = ["-C", "panic=abort"]
+
+# Android arm64
+[target.aarch64-linux-android]
+rustflags = ["-C", "panic=abort"]
+
+# Android x86_64 (emulator)
+[target.x86_64-linux-android]
+rustflags = ["-C", "panic=abort"]
+
+# Linux x86_64: baseline x86-64-v3 (Haswell+, AVX2/BMI2/FMA).
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "target-cpu=x86-64-v3", "-C", "panic=abort"]
+
+# Linux aarch64: use native CPU features.
+[target.aarch64-unknown-linux-gnu]
+rustflags = ["-C", "target-cpu=native", "-C", "panic=abort"]
+linker = "aarch64-linux-gnu-gcc"
+
+# Windows x86_64: baseline x86-64-v3.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-cpu=x86-64-v3", "-C", "panic=abort"]
+
+# musl targets for static linking
+[target.x86_64-unknown-linux-musl]
+rustflags = ["-C", "target-cpu=x86-64-v3", "-C", "panic=abort", "-C", "link-arg=-static"]
+linker = "clang"
+
+[target.aarch64-unknown-linux-musl]
+rustflags = ["-C", "target-cpu=native", "-C", "panic=abort", "-C", "link-arg=-static"]
+linker = "clang"
+
+# ──────────────────────────────────────────────────────────────────
+# Cross-compilation (requires cross crate)
+# ──────────────────────────────────────────────────────────────────
+
+[target.x86_64-pc-windows-gnu]
+linker = "x86_64-w64-mingw32-gcc"
+ar = "x86_64-w64-mingw32-gcc-ar"

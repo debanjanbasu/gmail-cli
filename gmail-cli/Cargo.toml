@@ -1,0 +1,24 @@
+[package]
+name = "gmail-cli"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+authors = { workspace = true }
+repository = { workspace = true }
+description = "High-performance Gmail CLI with HTTP/3 and zero-copy streaming"
+categories = ["command-line-utilities", "email"]
+
+[dependencies]
+gmail-core = { path = "../gmail-core" }
+clap = { workspace = true }
+config = { workspace = true }
+dirs = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+tokio = { workspace = true }
+serde_json = { workspace = true }
+
+[[bin]]
+name = "gmail"
+path = "src/main.rs"

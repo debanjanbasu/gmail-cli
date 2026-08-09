@@ -1,0 +1,23 @@
+[package]
+name = "gmail-skill-bindings"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+authors = { workspace = true }
+repository = { workspace = true }
+description = "NAPI bindings for gmail-opencode skill integration"
+categories = ["development-tools::ffi"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+gmail-core = { path = "../gmail-core", features = ["napi-bindings"] }
+napi = { workspace = true }
+napi-derive = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+
+[features]
+default = []
+napi-bindings = []

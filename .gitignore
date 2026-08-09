@@ -1,0 +1,40 @@
+# Rust target directory
+/target/
+
+# Cargo lock file (optional - some projects commit it)
+Cargo.lock
+
+# IDE/editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.dll
+*.exe
+*.so
+*.dylib
+
+# Test coverage
+coverage/
+*.profdata
+
+# Cargo cache
+.cargo/registry/
+.cargo/git/
+
+# Benchmark results
+*.bench
+
+# Environment files
+.env
+.env.local
+
+# Temporary files
+*.tmp
+*.temp
