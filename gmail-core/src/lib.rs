@@ -18,6 +18,7 @@
 pub mod auth;
 pub mod client;
 pub mod config;
+pub mod config_loader;
 pub mod error;
 pub mod models;
 pub mod runtime;
@@ -25,6 +26,7 @@ pub mod runtime;
 pub use auth::{AuthConfigBuilder, GmailAuth, TokenStorage};
 pub use client::{GmailClient, GmailClientBuilder};
 pub use config::{GmailConfig, OAuthConfig, PerformanceConfig};
+pub use config_loader::ConfigLoader;
 pub use error::{GmailError, Result};
 pub use models::*;
 pub use runtime::{detect_runtime_features, RuntimeFeatures};
@@ -34,6 +36,7 @@ pub mod prelude {
     pub use crate::auth::{AuthConfigBuilder, GmailAuth, TokenStorage};
     pub use crate::client::{GmailClient, GmailClientBuilder};
     pub use crate::config::{GmailConfig, OAuthConfig, PerformanceConfig};
+pub use crate::config_loader::ConfigLoader;
     pub use crate::error::{GmailError, Result};
     pub use crate::models::*;
     pub use crate::runtime::{detect_runtime_features, RuntimeFeatures};

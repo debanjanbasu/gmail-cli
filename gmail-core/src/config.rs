@@ -47,22 +47,28 @@ fn default_redirect_uri() -> String {
 
 fn default_scopes() -> Vec<String> {
     vec![
-        "https://www.googleapis.com/auth/gmail.readonly".to_string(),
-        "https://www.googleapis.com/auth/gmail.compose".to_string(),
-        #[cfg(feature = "http3")]
-        "https://www.googleapis.com/auth/gmail.modify".to_string(),
-        "https://www.googleapis.com/auth/gmail.labels".to_string(),
-        "https://mail.google.com/".to_string(),
+        "https://www.googleapis.com/auth/gmail.readonly".into(),
+        "https://www.googleapis.com/auth/gmail.compose".into(),
+        "https://www.googleapis.com/auth/gmail.modify".into(),
+        "https://www.googleapis.com/auth/gmail.labels".into(),
+        "https://mail.google.com/".into(),
     ]
 }
 
 impl Default for OAuthConfig {
     fn default() -> Self {
         Self {
-            client_id: String::new(),
-            client_secret: String::new(),
-            redirect_uri: default_redirect_uri(),
-            scopes: default_scopes(),
+            client_id: std::env::var("GMAIL_CLIENT_ID").unwrap_or_default(),
+            client_secret: std::env::var("GMAIL_CLIENT_SECRET").unwrap_or_default(),
+            redirect_uri: std::env::var("GMAIL_REDIRECT_URI")
+                .unwrap_or_else(|_| "http://localhost:3434/oauth/callback".into()),
+            scopes: vec![
+                "https://www.googleapis.com/auth/gmail.readonly".into(),
+                "https://www.googleapis.com/auth/gmail.compose".into(),
+                "https://www.googleapis.com/auth/gmail.modify".into(),
+                "https://www.googleapis.com/auth/gmail.labels".into(),
+                "https://mail.google.com/".into(),
+            ],
             use_pkce: true,
         }
     }

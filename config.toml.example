@@ -1,0 +1,49 @@
+# config.toml.example
+# Copy this file to ~/.config/gmail-opencode/config.toml and customize
+# Environment variables (GMAIL_*) take precedence over this file
+
+[oauth]
+client_id = ""
+client_secret = ""
+redirect_uri = "http://localhost:3434/oauth/callback"
+scopes = [
+    "https://www.googleapis.com/auth/gmail.readonly",
+    "https://www.googleapis.com/auth/gmail.compose",
+    "https://www.googleapis.com/auth/gmail.modify",
+    "https://www.googleapis.com/auth/gmail.labels",
+    "https://mail.google.com/"
+]
+use_pkce = true
+
+[performance]
+max_concurrent = 20
+connection_pool_size = 50
+request_timeout_secs = 30
+connect_timeout_secs = 5
+retry_attempts = 3
+retry_backoff_ms = 100
+enable_http3 = true
+enable_http2 = true
+enable_zstd = true
+enable_brotli = true
+tcp_keepalive_secs = 30
+http2_adaptive_window = true
+http2_keepalive_interval_secs = 30
+
+[output]
+default_format = "json"
+color = true
+pretty = false
+include_nulls = false
+
+[runtime]
+enable_metrics = false
+metrics_port = 9090
+enable_tracing = true
+log_level = "info"
+
+[cache]
+cache_dir = "~/.cache/gmail-opencode"
+enable_etag_cache = true
+max_cache_size_mb = 100
+cache_ttl_secs = 3600

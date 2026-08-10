@@ -59,7 +59,7 @@ clap = { version = "4.5.26", features = ["derive", "env", "wrap_help", "string"]
 config = { version = "0.14.1", features = ["toml"] }
 dirs = "5.0.1"
 toml = "0.8.19"
-figment = { version = "0.10.19" }
+figment = { version = "0.10.19", features = ["env", "toml"] }
 
 # ── Observability ──────────────────────────────────────────────────────────
 tracing = { version = "0.1.41", features = ["std", "log", "attributes", "valuable"] }
