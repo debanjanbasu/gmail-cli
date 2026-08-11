@@ -320,6 +320,91 @@ pub struct ErrorDetail {
     pub details: Option<Vec<serde_json::Value>>,
 }
 
+// Lightweight message for search results
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmailMessage {
+    pub id: String,
+    pub thread_id: String,
+    pub subject: Option<String>,
+    pub from: Option<String>,
+    pub to: Option<String>,
+    pub date: Option<String>,
+    pub snippet: Option<String>,
+    pub labels: Option<Vec<String>>,
+    pub size_estimate: Option<u64>,
+    pub internal_date: Option<String>,
+}
+
+// Full message with body and attachments
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ThreadMessage {
+    pub id: String,
+    pub thread_id: String,
+    pub subject: Option<String>,
+    pub from: Option<String>,
+    pub to: Option<String>,
+    pub date: Option<String>,
+    pub body: Option<String>,
+    pub labels: Option<Vec<String>>,
+    pub size_estimate: Option<u64>,
+    pub internal_date: Option<String>,
+    pub attachments: Option<Vec<AttachmentInfo>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AttachmentInfo {
+    pub attachment_id: String,
+    pub filename: String,
+    pub mime_type: String,
+    pub size: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DraftInfo {
+    pub id: String,
+    pub message: EmailMessage,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LabelInfo {
+    pub id: String,
+    pub name: String,
+    pub message_list_visibility: Option<String>,
+    pub label_list_visibility: Option<String>,
+    pub r#type: Option<String>,
+    pub messages_total: Option<u64>,
+    pub messages_unread: Option<u64>,
+    pub threads_total: Option<u64>,
+    pub threads_unread: Option<u64>,
+    pub color: Option<LabelColor>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryRecord {
+    pub id: String,
+    pub messages: Option<Vec<EmailMessage>>,
+    pub labels_added: Option<Vec<String>>,
+    pub labels_removed: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SendAsInfo {
+    pub send_as_email: String,
+    pub display_name: Option<String>,
+    pub reply_to_address: Option<String>,
+    pub signature: Option<String>,
+    pub is_primary: Option<bool>,
+    pub is_default: Option<bool>,
+    pub treat_as_alias: Option<bool>,
+}
+
 /// Helper to extract header value
 impl MessagePayload {
     pub fn header(&self, name: &str) -> Option<&str> {
