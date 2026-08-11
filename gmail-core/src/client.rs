@@ -260,7 +260,7 @@ impl GmailClient {
         Ok(response.json().await?)
     }
 
-    /// Send email with CC/BCC
+/// Send email with CC/BCC
     pub async fn send_with_options(
         &self,
         to: &str,
@@ -283,6 +283,65 @@ impl GmailClient {
         Ok(response.json().await?)
     }
 
+    /// Send email with attachments
+    pub async fn send_with_attachments(
+        &self,
+        to: &str,
+        subject: &str,
+        body: &str,
+        attachments: Vec<AttachmentData>,
+        thread_id: Option<&str>,
+    ) -> Result<Message> {
+        let boundary = format!("----gmail_boundary_{}_{}", 
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(),
+            rand::random::<u32>()
+        );
+        
+        let mut message_parts = vec![
+            format!("To: {}", to),
+            format!("Subject: {}", subject),
+            "MIME-Version: 1.0".to_string(),
+            format!("Content-Type: multipart/mixed; boundary=\"{}\"", boundary),
+            "".to_string(),
+            format!("--{}", boundary),
+            "Content-Type: text/plain; charset=\"UTF-8\"".to_string(),
+            "".to_string(),
+            body.to_string(),
+        ];
+        
+        for att in attachments {
+            let base64_content = base64::engine::general_purpose::STANDARD.encode(&att.content);
+            message_parts.extend(vec![
+                "".to_string(),
+                format!("--{}", boundary),
+                format!("Content-Type: {}", att.mime_type),
+                "Content-Transfer-Encoding: base64".to_string(),
+                format!("Content-Disposition: attachment; filename=\"{}\"", att.filename),
+                "".to_string(),
+                base64_content,
+            ]);
+        }
+        
+        message_parts.extend(vec!["".to_string(), format!("--{}--", boundary), "".to_string()]);
+        let email = message_parts.join("\r\n");
+        let raw = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(email.as_bytes());
+        
+        let request = SendMessageRequest { 
+            raw, 
+            thread_id: thread_id.map(|s| s.to_string()) 
+        };
+        
+        let response = self.execute_with_retry(
+            self.http_client
+                .post(self.base_url.join("users/me/messages/send").unwrap())
+                .json(&request)
+        ).await?;
+        
+        Ok(response.json().await?)
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Draft Operations
     // ═══════════════════════════════════════════════════════════════════
     // Draft Operations
     // ══════════════════════════════════════════════════════════════════
@@ -335,6 +394,24 @@ impl GmailClient {
         Ok(response.json().await?)
     }
 
+    /// Update draft
+    pub async fn update_draft(&self, draft_id: &str, to: &str, subject: &str, body: &str) -> Result<Draft> {
+        let email = build_email(to, subject, body, None, None)?;
+        let raw = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(email.as_bytes());
+        
+        let request = CreateDraftRequest {
+            message: DraftMessage { raw, thread_id: None },
+        };
+        
+        let response = self.execute_with_retry(
+            self.http_client
+                .put(self.base_url.join(&format!("users/me/drafts/{}", draft_id)).unwrap())
+                .json(&request)
+        ).await?;
+        
+        Ok(response.json().await?)
+    }
+
     /// Delete draft
     pub async fn delete_draft(&self, draft_id: &str) -> Result<()> {
         self.execute_with_retry(
@@ -348,7 +425,7 @@ impl GmailClient {
     // Label Operations
     // ══════════════════════════════════════════════════════════════════
 
-    /// List labels
+/// List labels
     pub async fn list_labels(&self) -> Result<Vec<Label>> {
         let response = self.execute_with_retry(
             self.http_client
@@ -358,18 +435,44 @@ impl GmailClient {
         Ok(list_response.items)
     }
 
-    /// Create label
-    pub async fn create_label(&self, name: &str) -> Result<Label> {
+    /// Get label
+    pub async fn get_label(&self, label_id: &str) -> Result<Label> {
+        let response = self.execute_with_retry(
+            self.http_client
+                .get(self.base_url.join(&format!("users/me/labels/{}", label_id)).unwrap())
+        ).await?;
+        Ok(response.json().await?)
+    }
+
+    /// Create label with options
+    pub async fn create_label(&self, name: &str, options: CreateLabelOptions) -> Result<Label> {
         let request = CreateLabelRequest {
             name: name.to_string(),
-            label_list_visibility: Some("labelShow".to_string()),
-            message_list_visibility: Some("show".to_string()),
-            color: None,
+            label_list_visibility: options.label_list_visibility,
+            message_list_visibility: options.message_list_visibility,
+            color: options.color,
         };
         
         let response = self.execute_with_retry(
             self.http_client
                 .post(self.base_url.join("users/me/labels").unwrap())
+                .json(&request)
+        ).await?;
+        Ok(response.json().await?)
+    }
+
+    /// Update label
+    pub async fn update_label(&self, label_id: &str, options: UpdateLabelOptions) -> Result<Label> {
+        let request = UpdateLabelRequest {
+            name: options.name,
+            label_list_visibility: options.label_list_visibility,
+            message_list_visibility: options.message_list_visibility,
+            color: options.color,
+        };
+        
+        let response = self.execute_with_retry(
+            self.http_client
+                .put(self.base_url.join(&format!("users/me/labels/{}", label_id)).unwrap())
                 .json(&request)
         ).await?;
         Ok(response.json().await?)
@@ -456,17 +559,83 @@ impl GmailClient {
         Ok(())
     }
 
+    /// Batch delete messages
+    pub async fn batch_delete_messages(&self, message_ids: &[String]) -> Result<()> {
+        self.execute_with_retry(
+            self.http_client
+                .post(self.base_url.join("users/me/messages/batchDelete").unwrap())
+                .json(&serde_json::json!({ "ids": message_ids }))
+        ).await?;
+        Ok(())
+    }
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Thread Operations
+    // ═══════════════════════════════════════════════════════════════════
+
+    /// Modify thread labels
+    pub async fn modify_thread_labels(
+        &self,
+        thread_id: &str,
+        add_labels: &[String],
+        remove_labels: &[String],
+    ) -> Result<()> {
+        let request = ModifyLabelsRequest {
+            add_label_ids: add_labels.to_vec(),
+            remove_label_ids: remove_labels.to_vec(),
+        };
+        
+        self.execute_with_retry(
+            self.http_client
+                .post(self.base_url.join(&format!("users/me/threads/{}/modify", thread_id)).unwrap())
+                .json(&request)
+        ).await?;
+        Ok(())
+    }
+
+    /// Trash thread
+    pub async fn trash_thread(&self, thread_id: &str) -> Result<()> {
+        self.execute_with_retry(
+            self.http_client
+                .post(self.base_url.join(&format!("users/me/threads/{}/trash", thread_id)).unwrap())
+        ).await?;
+        Ok(())
+    }
+
+    /// Untrash thread
+    pub async fn untrash_thread(&self, thread_id: &str) -> Result<()> {
+        self.execute_with_retry(
+            self.http_client
+                .post(self.base_url.join(&format!("users/me/threads/{}/untrash", thread_id)).unwrap())
+        ).await?;
+        Ok(())
+    }
+
+    /// Delete thread permanently
+    pub async fn delete_thread(&self, thread_id: &str) -> Result<()> {
+        self.execute_with_retry(
+            self.http_client
+                .delete(self.base_url.join(&format!("users/me/threads/{}", thread_id)).unwrap())
+        ).await?;
+        Ok(())
+    }
+
     // ═══════════════════════════════════════════════════════════════════
     // History & Profile
-    // ═════════════════════════════════════════════════════════════════
+    // ══════════════════════════════════════════════════════════════════
 
     /// Get history
-    pub async fn get_history(&self, start_history_id: &str) -> Result<Vec<History>> {
-        let response = self.execute_with_retry(
-            self.http_client
-                .get(self.base_url.join("users/me/history").unwrap())
-                .query(&[("startHistoryId", start_history_id)])
-        ).await?;
+    pub async fn get_history(&self, start_history_id: &str, label_id: Option<&str>, max_results: usize) -> Result<Vec<History>> {
+        let mut request = self
+            .http_client
+            .get(self.base_url.join("users/me/history").unwrap())
+            .query(&[("startHistoryId", start_history_id), ("maxResults", &max_results.to_string())]);
+        
+        if let Some(label) = label_id {
+            request = request.query(&[("labelId", label)]);
+        }
+        
+        let response = self.execute_with_retry(request).await?;
         let list_response: ListResponse<History> = response.json().await?;
         Ok(list_response.items)
     }
@@ -484,7 +653,7 @@ impl GmailClient {
     // Send-as Operations
     // ═════════════════════════════════════════════════════════════════
 
-    /// List send-as aliases
+/// List send-as aliases
     pub async fn list_send_as(&self) -> Result<Vec<SendAs>> {
         let response = self.execute_with_retry(
             self.http_client
@@ -492,6 +661,44 @@ impl GmailClient {
         ).await?;
         let list_response: ListResponse<SendAs> = response.json().await?;
         Ok(list_response.items)
+    }
+
+    /// Get send-as alias
+    pub async fn get_send_as(&self, send_as_email: &str) -> Result<SendAs> {
+        let response = self.execute_with_retry(
+            self.http_client
+                .get(self.base_url.join(&format!("users/me/settings/sendAs/{}", send_as_email)).unwrap())
+        ).await?;
+        Ok(response.json().await?)
+    }
+
+    /// Create send-as alias
+    pub async fn create_send_as(&self, options: CreateSendAsOptions) -> Result<SendAs> {
+        let response = self.execute_with_retry(
+            self.http_client
+                .post(self.base_url.join("users/me/settings/sendAs").unwrap())
+                .json(&options)
+        ).await?;
+        Ok(response.json().await?)
+    }
+
+    /// Update send-as alias
+    pub async fn update_send_as(&self, send_as_email: &str, options: UpdateSendAsOptions) -> Result<SendAs> {
+        let response = self.execute_with_retry(
+            self.http_client
+                .put(self.base_url.join(&format!("users/me/settings/sendAs/{}", send_as_email)).unwrap())
+                .json(&options)
+        ).await?;
+        Ok(response.json().await?)
+    }
+
+    /// Delete send-as alias
+    pub async fn delete_send_as(&self, send_as_email: &str) -> Result<()> {
+        self.execute_with_retry(
+            self.http_client
+                .delete(self.base_url.join(&format!("users/me/settings/sendAs/{}", send_as_email)).unwrap())
+        ).await?;
+        Ok(())
     }
 
     // ══════════════════════════════════════════════════════════════════
@@ -528,13 +735,13 @@ impl GmailClient {
     // ═════════════════════════════════════════════════════════════════
 
     /// Import message from RFC 822
-    pub async fn import_message(&self, raw_rfc822: &str) -> Result<Message> {
+    pub async fn import_message(&self, raw_rfc822: &str, deleted: bool) -> Result<Message> {
         let raw = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(raw_rfc822.as_bytes());
         
         let request = ImportMessageRequest {
             raw,
             internal_date_source: Some("dateHeader".to_string()),
-            deleted: Some(false),
+            deleted: Some(deleted),
             never_spam: Some(false),
             process_for_calendar: Some(false),
         };

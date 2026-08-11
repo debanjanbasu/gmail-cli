@@ -304,6 +304,55 @@ pub struct SendMessageRequest {
     pub thread_id: Option<String>,
 }
 
+/// Attachment data for sending emails
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AttachmentData {
+    pub filename: String,
+    pub content: Vec<u8>,
+    pub mime_type: String,
+}
+
+/// Options for creating a label
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateLabelOptions {
+    pub label_list_visibility: Option<String>,
+    pub message_list_visibility: Option<String>,
+    pub color: Option<LabelColor>,
+}
+
+/// Options for updating a label
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateLabelOptions {
+    pub name: Option<String>,
+    pub label_list_visibility: Option<String>,
+    pub message_list_visibility: Option<String>,
+    pub color: Option<LabelColor>,
+}
+
+/// Options for creating a send-as alias
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateSendAsOptions {
+    pub send_as_email: String,
+    pub display_name: Option<String>,
+    pub reply_to_address: Option<String>,
+    pub signature: Option<String>,
+    pub treat_as_alias: Option<bool>,
+}
+
+/// Options for updating a send-as alias
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateSendAsOptions {
+    pub display_name: Option<String>,
+    pub reply_to_address: Option<String>,
+    pub signature: Option<String>,
+    pub treat_as_alias: Option<bool>,
+}
+
 /// Error response
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
