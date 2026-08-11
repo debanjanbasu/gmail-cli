@@ -105,7 +105,6 @@ tempfile = "3.14.0"
 # ── Additional ─────────────────────────────────────────────────────────────
 async-stream = "0.3.5"
 async-trait = "0.1.76"
-governor = { version = "0.10.4", features = ["std", "jitter"] }
 uuid = { version = "1.8.0", features = ["v4", "serde", "fast-rng"] }
 chrono = { version = "0.4.39", features = ["serde", "clock"] }
 mime = "0.3.17"

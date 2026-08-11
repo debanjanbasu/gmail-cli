@@ -57,7 +57,6 @@ thiserror = { workspace = true }
 # Additional dependencies
 async-stream = { workspace = true }
 async-trait = { workspace = true }
-governor = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
 mime = { workspace = true }

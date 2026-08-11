@@ -70,9 +70,6 @@ pub enum GmailError {
     #[error("Timeout: {0}")]
     Timeout(String),
 
-    #[error("Connection pool exhausted")]
-    PoolExhausted,
-
     #[error("Invalid state: {0}")]
     InvalidState(String),
 
@@ -89,8 +86,7 @@ impl GmailError {
         ) || matches!(
             self,
             GmailError::RateLimited { .. } |
-            GmailError::Timeout(_) |
-            GmailError::PoolExhausted
+            GmailError::Timeout(_)
         ) || matches!(
             self,
             GmailError::Api { status, .. } if *status >= 500 || *status == 429
@@ -102,6 +98,7 @@ impl GmailError {
         match self {
             GmailError::Api { status, .. } => Some(*status),
             GmailError::Http(e) => e.status().map(|s| s.as_u16()),
+            GmailError::RateLimited { .. } => Some(429),
             _ => None,
         }
     }

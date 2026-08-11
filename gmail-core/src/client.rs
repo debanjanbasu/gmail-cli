@@ -4,7 +4,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use base64::Engine;
-use governor::{Quota, RateLimiter, state::InMemoryState, clock::DefaultClock, state::NotKeyed};
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE, ACCEPT_ENCODING};
 use reqwest::Client as ReqwestClient;
 use tokio::sync::Semaphore;
@@ -58,7 +57,6 @@ pub struct GmailClient {
     http_client: ReqwestClient,
     config: GmailConfig,
     semaphore: Arc<Semaphore>,
-    rate_limiter: Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>,
     base_url: Url,
     #[allow(dead_code)]
     runtime_features: RuntimeFeatures,
@@ -75,11 +73,6 @@ impl GmailClient {
         
         let max_concurrent = config.performance.max_concurrent;
         let semaphore = Arc::new(Semaphore::new(max_concurrent));
-        
-        // Rate limiter: 250 requests per second per user (Gmail API quota)
-        let quota = Quota::per_second(std::num::NonZeroU32::new(250).unwrap())
-            .allow_burst(std::num::NonZeroU32::new(50).unwrap());
-        let rate_limiter = Arc::new(RateLimiter::direct(quota));
 
         let base_url = Url::parse("https://gmail.googleapis.com/gmail/v1/")
             .map_err(|e| GmailError::Config(format!("Invalid base URL: {}", e)))?;
@@ -97,7 +90,6 @@ impl GmailClient {
             http_client,
             config,
             semaphore,
-            rate_limiter,
             base_url,
             runtime_features,
         })
@@ -561,10 +553,11 @@ impl GmailClient {
 
     async fn execute_with_retry(&self, mut request: reqwest::RequestBuilder) -> Result<reqwest::Response> {
         // Acquire semaphore for concurrency control
-        let _permit = self.semaphore.acquire().await.map_err(|_| GmailError::PoolExhausted)?;
-
-        // Rate limiting
-        self.rate_limiter.until_ready().await;
+        let _permit = self
+            .semaphore
+            .acquire()
+            .await
+            .map_err(|_| GmailError::Internal("Semaphore closed".into()))?;
 
         // Add auth header
         let token = self.auth.get_access_token().await?;
@@ -596,7 +589,7 @@ impl GmailClient {
                             continue; // Retry with new token
                         }
                         429 => {
-                            // Rate limited
+                            // Rate limited - extract retry-after header
                             let retry_after = resp
                                 .headers()
                                 .get("retry-after")
