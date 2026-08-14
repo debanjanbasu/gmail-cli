@@ -16,6 +16,7 @@ Make the gmail-opencode-rust workspace warning-free, dependency-lean, and struct
 - `auth.rs` = 387 lines (token storage + OAuth client + callback server + builder)
 - `gmail-skill-bindings/src/lib.rs` = 490 lines with **zero** `#[napi]` attributes — plain Rust async functions
 - Dead deps declared but never referenced in source: `simd-json`, `smallvec`, `ahash`, `dashmap`, `parking_lot`, `bytes`, `tokio-util`, `oauth2`, `metrics`, `metrics-exporter-prometheus`, `rkyv` (only a dead error variant), `quinn`, `h3`, `tokio-rustls`, `axum`, `hyper`, `tower`
+- `zstd`/`brotli` direct crates referenced **only** by `build.rs` (dictionary training); payload compression is handled by reqwest's own `zstd`/`brotli` features (`.zstd()`/`.brotli()` builder calls in client.rs are reqwest methods for `Accept-Encoding` decompression)
 
 ## Phases
 
@@ -29,8 +30,9 @@ Make the gmail-opencode-rust workspace warning-free, dependency-lean, and struct
 
 Remove from workspace + crate Cargo.tomls (verified unreferenced in source):
 - gmail-core: `simd-json`, `smallvec`, `ahash`, `dashmap`, `parking_lot`, `bytes`, `tokio-util`, `oauth2`, `metrics`, `metrics-exporter-prometheus`, `quinn`, `h3`, `tokio-rustls`, `axum`, `hyper`, `tower`, `rkyv` (+ `Rkyv` error variant in error.rs, + "zero-copy" doc claims in lib.rs)
-- Keep: `reqwest` (http3/zstd/brotli features), `tokio`, `serde`, `serde_json`, `url`, `ring`, `rustls`, `webpki-roots`, `clap`, `dirs`, `toml`, `figment`, `tracing`, `zstd`, `brotli`, `futures`, `anyhow`, `thiserror`
-- Remove `gmail-core/build.rs` (zstd dictionary training — trains from zero samples, emits 4 warnings every build)
+- Remove `zstd`/`brotli` **direct crates** + workspace deps (including `fat-lto`/`zdict_builder`/`zstdmt` features — all dictionary-training-only). Payload zstd/brotli compression is preserved via reqwest's `zstd`/`brotli` features, which handle request/response decompression transparently. Config flags `enable_zstd`/`enable_brotli` remain and keep calling reqwest's `.zstd()`/`.brotli()`.
+- Keep: `reqwest` (http3/zstd/brotli features), `tokio`, `serde`, `serde_json`, `url`, `ring`, `rustls`, `webpki-roots`, `clap`, `dirs`, `toml`, `figment`, `tracing`, `futures`, `anyhow`, `thiserror`
+- Remove `gmail-core/build.rs` (zstd dictionary training — trains from zero samples, emits 4 warnings every build) and the `assets/dict/` directory it writes
 - Trim `reqwest` features to what source actually uses
 - Gate: build + clippy clean, tests pass
 
