@@ -1,28 +1,8 @@
 [build]
 rustflags = [
-    # Unstable features
     "--cfg", "reqwest_unstable",
     "--cfg", "hyper_unstable_ffi",
     "--cfg", "tokio_unstable",
-    
-    # Tokio unstable features
-    "--cfg", "tokio_unstable",
-    
-    # Threading & optimization
-    "-Zthreads=32",
-    
-    # Debug info optimization (smaller binaries)
-    "-Zlocation-detail=none",
-    "-Zfmt-debug=none",
-    
-    # Function merging (requires nightly)
-    "-Zmerge-functions",
-    
-    # Panic handling
-    "-Zunstable-options", "-Cpanic=immediate-abort",
-    
-    # Virtual function elimination (experimental)
-    "-Zvirtual-function-elimination",
 ]
 
 # ──────────────────────────────────────────────────────────────────

@@ -5,69 +5,37 @@ edition = { workspace = true }
 license = { workspace = true }
 authors = { workspace = true }
 repository = { workspace = true }
-description = "High-performance Gmail API core library with HTTP/3, zero-copy streaming, and parallel batch operations"
+description = "High-performance Gmail API core library with HTTP/3 and parallel batch operations"
 categories = ["api-bindings", "email", "network-programming"]
-keywords = ["gmail", "api", "http3", "io-uring", "zero-copy", "streaming"]
+keywords = ["gmail", "api", "http3", "streaming"]
 
 [dependencies]
 # Workspace dependencies - all required
-reqwest = { workspace = true, features = ["http3", "zstd", "brotli", "stream", "hickory-dns", "rustls", "json", "multipart", "cookies", "form", "query"] }
-quinn = { workspace = true, features = ["rustls-aws-lc-rs", "runtime-tokio"] }
-h3 = { workspace = true }
+reqwest = { workspace = true, features = ["http3", "zstd", "brotli", "rustls", "json", "form", "query"] }
 tokio = { workspace = true }
-tokio-rustls = { workspace = true }
-tokio-util = { workspace = true }
-rkyv = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-simd-json = { workspace = true }
-oauth2 = { workspace = true }
 url = { workspace = true }
 ring = { workspace = true }
 rustls = { workspace = true, features = ["aws-lc-rs"] }
 webpki-roots = { workspace = true }
 clap = { workspace = true }
-config = { workspace = true }
 dirs = { workspace = true }
 toml = { workspace = true }
 figment = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-metrics = { workspace = true }
-metrics-exporter-prometheus = { workspace = true }
-valuable = { workspace = true }
-bytes = { workspace = true }
 futures = { workspace = true }
-smallvec = { workspace = true }
-ahash = { workspace = true }
-parking_lot = { workspace = true }
-dashmap = { workspace = true }
-zstd = { workspace = true }
-brotli = { workspace = true }
-axum = { workspace = true }
-tower = { workspace = true }
-tower-http = { workspace = true }
-hyper = { workspace = true }
-hyper-util = { workspace = true }
-napi = { workspace = true, optional = true }
-napi-derive = { workspace = true, optional = true }
 anyhow = { workspace = true }
 thiserror = { workspace = true }
 
 # Additional dependencies
-async-stream = { workspace = true }
-async-trait = { workspace = true }
-uuid = { workspace = true }
-chrono = { workspace = true }
-mime = { workspace = true }
 base64 = { workspace = true }
-percent-encoding = { workspace = true }
 rand = { workspace = true }
 sha2 = { workspace = true }
 urlencoding = { workspace = true }
-flume = { workspace = true }
-open = "5.0"
-num_cpus = "1.16"
+open = "5.4"
+num_cpus = "1.17"
 
 # Platform-specific: io_uring only on Linux
 [target.'cfg(target_os = "linux")'.dependencies]
@@ -81,19 +49,8 @@ tempfile = { workspace = true }
 
 [features]
 # Only optional features that control optional dependencies
-default = ["http3", "zstd", "brotli", "simd", "zero-copy", "napi-bindings"]
+default = ["http3", "zstd", "brotli", "simd"]
 http3 = []
 zstd = []
 brotli = []
 simd = []
-zero-copy = []
-napi-bindings = ["napi", "napi-derive"]
-# io-uring feature is only available on Linux
-# io-uring = ["tokio-uring"]
-
-# Build script for zstd dictionary training
-[build-dependencies]
-zstd = { workspace = true }
-tokio = { workspace = true, features = ["rt-multi-thread", "fs"] }
-anyhow = { workspace = true }
-serde_json = { workspace = true }

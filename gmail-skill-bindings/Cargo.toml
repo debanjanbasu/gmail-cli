@@ -12,12 +12,8 @@ categories = ["development-tools::ffi"]
 crate-type = ["cdylib"]
 
 [dependencies]
-gmail-core = { path = "../gmail-core", features = ["napi-bindings"] }
-napi = { workspace = true }
+gmail-core = { path = "../gmail-core" }
+napi = { workspace = true, features = ["napi8", "tokio_rt"] }
 napi-derive = { workspace = true }
-tokio = { workspace = true }
-anyhow = { workspace = true }
-
-[features]
-default = []
-napi-bindings = []
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }

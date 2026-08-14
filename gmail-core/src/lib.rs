@@ -2,10 +2,9 @@
 //!
 //! Features:
 //! - HTTP/3 with QUIC (via reqwest unstable)
-//! - Zero-copy streaming with rkyv
 //! - Parallel batch operations with semaphore-based concurrency control
 //! - Automatic io_uring detection on Linux
-//! - zstd/brotli compression with pre-trained dictionaries
+//! - zstd/brotli transport compression (via reqwest)
 //! - napi-rs bindings for Node.js/opencode integration
 
 #![deny(unsafe_code)]
@@ -36,7 +35,7 @@ pub mod prelude {
     pub use crate::auth::{AuthConfigBuilder, GmailAuth, TokenStorage};
     pub use crate::client::{GmailClient, GmailClientBuilder};
     pub use crate::config::{GmailConfig, OAuthConfig, PerformanceConfig};
-pub use crate::config_loader::ConfigLoader;
+    pub use crate::config_loader::ConfigLoader;
     pub use crate::error::{GmailError, Result};
     pub use crate::models::*;
     pub use crate::runtime::{detect_runtime_features, RuntimeFeatures};

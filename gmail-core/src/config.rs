@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 /// Main configuration for Gmail client
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub struct GmailConfig {
     #[serde(default)]
@@ -58,10 +58,9 @@ fn default_scopes() -> Vec<String> {
 impl Default for OAuthConfig {
     fn default() -> Self {
         Self {
-            client_id: std::env::var("GMAIL_CLIENT_ID").unwrap_or_default(),
-            client_secret: std::env::var("GMAIL_CLIENT_SECRET").unwrap_or_default(),
-            redirect_uri: std::env::var("GMAIL_REDIRECT_URI")
-                .unwrap_or_else(|_| "http://localhost:3434/oauth/callback".into()),
+            client_id: String::new(),
+            client_secret: String::new(),
+            redirect_uri: "http://localhost:3434/oauth/callback".into(),
             scopes: vec![
                 "https://www.googleapis.com/auth/gmail.readonly".into(),
                 "https://www.googleapis.com/auth/gmail.compose".into(),
@@ -272,18 +271,6 @@ impl Default for CacheConfig {
             enable_etag_cache: default_true(),
             max_cache_size_mb: default_cache_size(),
             cache_ttl_secs: default_cache_ttl(),
-        }
-    }
-}
-
-impl Default for GmailConfig {
-    fn default() -> Self {
-        Self {
-            oauth: OAuthConfig::default(),
-            performance: PerformanceConfig::default(),
-            output: OutputConfig::default(),
-            runtime: RuntimeConfig::default(),
-            cache: CacheConfig::default(),
         }
     }
 }

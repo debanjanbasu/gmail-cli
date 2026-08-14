@@ -16,9 +16,6 @@ pub enum GmailError {
     #[error("JSON serialization error: {0}")]
     Json(#[from] serde_json::Error),
 
-    #[error("rkyv serialization error: {0}")]
-    Rkyv(#[from] rkyv::rancor::Error),
-
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
