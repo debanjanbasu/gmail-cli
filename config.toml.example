@@ -1,5 +1,5 @@
 # config.toml.example
-# Copy this file to ~/.config/gmail-opencode/config.toml and customize
+# Copy this file to ~/.gmail-opencode/config.toml and customize
 # Environment variables (GMAIL_*) take precedence over this file
 
 [oauth]

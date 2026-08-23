@@ -54,8 +54,8 @@ Every shipped claim must be observable and true:
 
 - `get_attachment_bytes(mid, aid) -> Result<bytes::Bytes>`: fetch JSON, extract `data` field, base64-decode directly into `bytes::BytesMut` sized from base64 length estimate, `freeze()`. One heap allocation for payload. Existing `get_attachment()` and the `Attachment` model stay unchanged (JSON/NAPI serialization compatibility); CLI attachment paths switch to `get_attachment_bytes`.
 - `download_attachment_to(mid, aid, path) -> Result<u64>`: uses `get_attachment_bytes` + `fs_io::write_file`. Returns bytes written.
-- `send_attachments_from_disk(to, subject, body, paths, thread_id)`: MIME assembled incrementally into a writer chain; each file streamed through `base64::write::EncoderWriter` into `reqwest::Body::wrap_stream`; no whole-file buffering. Boundary generation unchanged.
-- `import_from_file(path, deleted)`: reads RFC822 via `fs_io::read_file`, encodes, posts. (Gmail import API requires base64-in-JSON, so file streams to encode, single `Bytes` out.)
+- `send_attachments_from_disk(to, subject, body, paths, thread_id)`: MIME assembled as a **streamed request body** — static header frames + per-file chunks base64-encoded incrementally (3N-sized reads) — posted to the **media-upload endpoint** `https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send?uploadType=media` with `Content-Type: message/rfc822` via `reqwest::Body::wrap_stream`. No whole-file buffering, no base64-in-JSON double wrap.
+- `import_from_file(path, deleted)`: streams RFC822 file directly to `/upload/gmail/v1/users/me/messages/import?uploadType=media&internalDateSource=dateHeader` (`deleted` as query param). Falls back to JSON path only if media upload rejected by server.
 - `get_message_raw_bytes(id) -> Result<Bytes>` replacing String return (callers updated).
 
 ### 3. io_uring file I/O
