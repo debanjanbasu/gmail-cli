@@ -9,7 +9,8 @@ mod commands;
 mod output;
 
 use commands::{
-    auth, drafts, history, import, labels, message_ops, messages, profile, send, send_as, thread_ops, watch,
+    auth, drafts, history, import, labels, message_ops, messages, profile, send, send_as, thread_ops, transport,
+    watch,
 };
 use output::OutputFormat;
 
@@ -57,6 +58,8 @@ enum Commands {
     /// Message operations (label, trash, delete, batch)
     #[command(subcommand)]
     Msg(message_ops::MessageOpsCommands),
+    /// Show negotiated transport protocol and runtime features
+    Transport(transport::TransportArgs),
 }
 
 #[tokio::main]
@@ -98,6 +101,7 @@ async fn main() -> Result<()> {
         Commands::Watch(cmd) => commands::watch::handle_watch_cmd(&client, cmd).await?,
         Commands::Import(args) => commands::import::handle_import_cmd(&client, args).await?,
         Commands::Msg(cmd) => commands::message_ops::handle_message_ops_cmd(&client, cmd).await?,
+        Commands::Transport(args) => commands::transport::handle_transport_cmd(&client, args).await?,
     }
 
     Ok(())

@@ -210,6 +210,11 @@ impl GmailClient {
         &self.transport_info
     }
 
+    /// Performance configuration this client was built with.
+    pub fn performance_config(&self) -> &PerformanceConfig {
+        &self.config.performance
+    }
+
     /// Force re-authentication by invalidating token
     pub async fn force_refresh(&self) -> Result<()> {
         self.auth.force_refresh().await

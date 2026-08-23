@@ -11,4 +11,5 @@ pub mod profile;
 pub mod send;
 pub mod send_as;
 pub mod thread_ops;
+pub mod transport;
 pub mod watch;

@@ -24,6 +24,15 @@ async fn test_help_shows_all_commands() {
 }
 
 #[tokio::test]
+async fn help_lists_transport_command() {
+    let mut cmd = Command::cargo_bin("gmail").unwrap();
+    cmd.arg("--help");
+    cmd.assert()
+        .success()
+        .stdout(predicate::str::contains("transport"));
+}
+
+#[tokio::test]
 async fn test_message_subcommands() {
     let mut cmd = Command::cargo_bin("gmail").unwrap();
     cmd.arg("message").arg("--help");
