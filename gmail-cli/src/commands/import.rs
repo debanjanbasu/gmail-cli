@@ -1,9 +1,9 @@
 //! Import CLI commands
 
-use crate::output::{print_output, OutputFormat};
-use gmail_core::GmailClient;
-use clap::Args;
+use crate::output::{OutputFormat, print_output};
 use anyhow::Result;
+use clap::Args;
+use gmail_core::GmailClient;
 use std::path::Path;
 use tokio_util::io::ReaderStream;
 
@@ -21,14 +21,13 @@ pub struct ImportArgs {
     pub format: OutputFormat,
 }
 
-pub async fn handle_import_cmd(
-    client: &GmailClient,
-    args: ImportArgs,
-) -> Result<()> {
+pub async fn handle_import_cmd(client: &GmailClient, args: ImportArgs) -> Result<()> {
     let path = Path::new(&args.file);
     let file = tokio::fs::File::open(path).await?;
 
-    let msg = client.import_stream(ReaderStream::new(file), args.deleted).await?;
+    let msg = client
+        .import_stream(ReaderStream::new(file), args.deleted)
+        .await?;
     print_output(&msg, args.format)?;
     Ok(())
 }

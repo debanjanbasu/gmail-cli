@@ -1,4 +1,4 @@
-//! Gmail API response models with zero-copy support via rkyv (disabled for now due to recursive type issues)
+//! Gmail API response models deserialized with serde
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

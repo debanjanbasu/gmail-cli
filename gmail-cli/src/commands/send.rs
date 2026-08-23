@@ -1,10 +1,10 @@
 //! Send email CLI commands
 
-use crate::output::{print_output, OutputFormat};
-use gmail_core::client::{StreamAttachment, mime_message_stream};
-use gmail_core::GmailClient;
-use clap::{Args, Subcommand};
+use crate::output::{OutputFormat, print_output};
 use anyhow::Result;
+use clap::{Args, Subcommand};
+use gmail_core::GmailClient;
+use gmail_core::client::{StreamAttachment, mime_message_stream};
 use std::path::Path;
 
 #[derive(Subcommand, Debug)]
@@ -19,21 +19,21 @@ pub enum SendCommands {
 pub struct SendArgs {
     /// Recipient email
     pub to: String,
-    
+
     /// Subject
     pub subject: String,
-    
+
     /// Body text
     pub body: String,
-    
+
     /// CC recipients (comma-separated)
     #[arg(long)]
     pub cc: Option<String>,
-    
+
     /// BCC recipients (comma-separated)
     #[arg(long)]
     pub bcc: Option<String>,
-    
+
     /// Output format
     #[arg(short, long, value_enum, default_value = "json")]
     pub format: OutputFormat,
@@ -43,48 +43,47 @@ pub struct SendArgs {
 pub struct SendAttachArgs {
     /// Recipient email
     pub to: String,
-    
+
     /// Subject
     pub subject: String,
-    
+
     /// Body text
     pub body: String,
-    
+
     /// Attachment file paths (comma-separated)
     #[arg(long, value_delimiter = ',')]
     pub attachments: Vec<String>,
-    
+
     /// Thread ID to reply to (optional)
     #[arg(long)]
     pub thread_id: Option<String>,
-    
+
     /// CC recipients (comma-separated)
     #[arg(long)]
     pub cc: Option<String>,
-    
+
     /// BCC recipients (comma-separated)
     #[arg(long)]
     pub bcc: Option<String>,
-    
+
     /// Output format
     #[arg(short, long, value_enum, default_value = "json")]
     pub format: OutputFormat,
 }
 
-pub async fn handle_send_cmd(
-    client: &GmailClient,
-    cmd: SendCommands,
-) -> Result<()> {
+pub async fn handle_send_cmd(client: &GmailClient, cmd: SendCommands) -> Result<()> {
     match cmd {
         SendCommands::Send(args) => {
             let msg = if args.cc.is_some() || args.bcc.is_some() {
-                client.send_with_options(
-                    &args.to,
-                    &args.subject,
-                    &args.body,
-                    args.cc.as_deref(),
-                    args.bcc.as_deref(),
-                ).await?
+                client
+                    .send_with_options(
+                        &args.to,
+                        &args.subject,
+                        &args.body,
+                        args.cc.as_deref(),
+                        args.bcc.as_deref(),
+                    )
+                    .await?
             } else {
                 client.send(&args.to, &args.subject, &args.body).await?
             };

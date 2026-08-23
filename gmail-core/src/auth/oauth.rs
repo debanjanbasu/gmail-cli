@@ -31,22 +31,34 @@ impl super::GmailAuth {
         // Generate authorization URL
         let mut auth_url = "https://accounts.google.com/o/oauth2/v2/auth".to_string();
         auth_url.push_str("?response_type=code");
-        auth_url.push_str(&format!("&client_id={}", urlencoding::encode(&self.config.client_id)));
-        auth_url.push_str(&format!("&redirect_uri={}", urlencoding::encode(&self.config.redirect_uri)));
-        auth_url.push_str(&format!("&scope={}", urlencoding::encode(&self.config.scopes.join(" "))));
+        auth_url.push_str(&format!(
+            "&client_id={}",
+            urlencoding::encode(&self.config.client_id)
+        ));
+        auth_url.push_str(&format!(
+            "&redirect_uri={}",
+            urlencoding::encode(&self.config.redirect_uri)
+        ));
+        auth_url.push_str(&format!(
+            "&scope={}",
+            urlencoding::encode(&self.config.scopes.join(" "))
+        ));
         auth_url.push_str("&access_type=offline");
         auth_url.push_str("&prompt=consent");
-        
+
         if let Some(challenge) = &pkce_challenge {
             auth_url.push_str(&format!("&code_challenge={}", challenge));
             auth_url.push_str("&code_challenge_method=S256");
         }
 
         info!("Opening browser for authentication: {}", auth_url);
-        
+
         // Open browser
         if let Err(e) = open::that(auth_url.as_str()) {
-            warn!("Failed to open browser: {}. Please manually open: {}", e, auth_url);
+            warn!(
+                "Failed to open browser: {}. Please manually open: {}",
+                e, auth_url
+            );
         }
 
         // Start local server to receive callback
@@ -60,7 +72,7 @@ impl super::GmailAuth {
             ("redirect_uri", self.config.redirect_uri.clone()),
             ("grant_type", "authorization_code".to_string()),
         ];
-        
+
         if let Some(verifier) = pkce_verifier {
             form.push(("code_verifier", verifier));
         }
@@ -74,19 +86,15 @@ impl super::GmailAuth {
             .map_err(GmailError::Http)?;
 
         let token_data: serde_json::Value = response.json().await.map_err(GmailError::Http)?;
-        
+
         let access_token = token_data["access_token"]
             .as_str()
             .ok_or_else(|| GmailError::Auth(anyhow!("No access token in response").into()))?
             .to_string();
-        
-        let expires_in = token_data["expires_in"]
-            .as_u64()
-            .unwrap_or(3600);
-        
-        let refresh_token = token_data["refresh_token"]
-            .as_str()
-            .map(|s| s.to_string());
+
+        let expires_in = token_data["expires_in"].as_u64().unwrap_or(3600);
+
+        let refresh_token = token_data["refresh_token"].as_str().map(|s| s.to_string());
 
         let expires_at = SystemTime::now()
             .duration_since(UNIX_EPOCH)

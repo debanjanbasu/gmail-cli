@@ -143,7 +143,11 @@ async fn test_format_option() {
 #[tokio::test]
 async fn test_invalid_format() {
     let mut cmd = Command::cargo_bin("gmail").unwrap();
-    cmd.arg("--format").arg("invalid").arg("message").arg("search").arg("test");
+    cmd.arg("--format")
+        .arg("invalid")
+        .arg("message")
+        .arg("search")
+        .arg("test");
     cmd.assert()
         .failure()
         .stderr(predicate::str::contains("invalid value"));

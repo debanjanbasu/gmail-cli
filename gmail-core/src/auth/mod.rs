@@ -86,7 +86,10 @@ impl GmailAuth {
 
         if let Some(storage) = storage_guard.as_ref() {
             if !storage.is_expired() {
-                debug!("Using cached access token ({}s remaining)", storage.remaining_secs());
+                debug!(
+                    "Using cached access token ({}s remaining)",
+                    storage.remaining_secs()
+                );
                 return Ok(storage.access_token.clone());
             }
 
@@ -149,8 +152,11 @@ impl GmailAuth {
         if !status.is_success() {
             // Google reports rejection reasons (e.g. invalid_grant) in the
             // response body; surface them instead of a generic parse failure.
-            let body: serde_json::Value = serde_json::from_str(&body_text)
-                .map_err(|e| GmailError::Auth(anyhow!("token endpoint returned {}: unparseable body ({e})", status).into()))?;
+            let body: serde_json::Value = serde_json::from_str(&body_text).map_err(|e| {
+                GmailError::Auth(
+                    anyhow!("token endpoint returned {}: unparseable body ({e})", status).into(),
+                )
+            })?;
             let reason = body["error"]
                 .as_str()
                 .or_else(|| body["error_description"].as_str())
@@ -166,21 +172,20 @@ impl GmailAuth {
             ));
         }
 
-        let token_data: serde_json::Value = serde_json::from_str(&body_text)
-            .map_err(|e| GmailError::Auth(anyhow!("token endpoint returned unparseable success body ({e})").into()))?;
+        let token_data: serde_json::Value = serde_json::from_str(&body_text).map_err(|e| {
+            GmailError::Auth(
+                anyhow!("token endpoint returned unparseable success body ({e})").into(),
+            )
+        })?;
 
         let access_token = token_data["access_token"]
             .as_str()
             .ok_or_else(|| GmailError::Auth(anyhow!("No access token in response").into()))?
             .to_string();
-        
-        let expires_in = token_data["expires_in"]
-            .as_u64()
-            .unwrap_or(3600);
-        
-        let refresh_token = token_data["refresh_token"]
-            .as_str()
-            .map(|s| s.to_string());
+
+        let expires_in = token_data["expires_in"].as_u64().unwrap_or(3600);
+
+        let refresh_token = token_data["refresh_token"].as_str().map(|s| s.to_string());
 
         let expires_at = SystemTime::now()
             .duration_since(UNIX_EPOCH)

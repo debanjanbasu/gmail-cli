@@ -1,8 +1,8 @@
 //! Thread operations CLI commands
 
-use gmail_core::GmailClient;
-use clap::{Args, Subcommand};
 use anyhow::Result;
+use clap::{Args, Subcommand};
+use gmail_core::GmailClient;
 
 #[derive(Subcommand, Debug)]
 pub enum ThreadCommands {
@@ -20,11 +20,11 @@ pub enum ThreadCommands {
 pub struct LabelArgs {
     /// Thread ID
     pub thread_id: String,
-    
+
     /// Labels to add (comma-separated)
     #[arg(long, value_delimiter = ',')]
     pub add: Vec<String>,
-    
+
     /// Labels to remove (comma-separated)
     #[arg(long, value_delimiter = ',')]
     pub remove: Vec<String>,
@@ -48,13 +48,12 @@ pub struct DeleteArgs {
     pub thread_id: String,
 }
 
-pub async fn handle_thread_cmd(
-    client: &GmailClient,
-    cmd: ThreadCommands,
-) -> Result<()> {
+pub async fn handle_thread_cmd(client: &GmailClient, cmd: ThreadCommands) -> Result<()> {
     match cmd {
         ThreadCommands::Label(args) => {
-            client.modify_thread_labels(&args.thread_id, &args.add, &args.remove).await?;
+            client
+                .modify_thread_labels(&args.thread_id, &args.add, &args.remove)
+                .await?;
             println!("Labels updated for thread {}", args.thread_id);
         }
         ThreadCommands::Trash(args) => {

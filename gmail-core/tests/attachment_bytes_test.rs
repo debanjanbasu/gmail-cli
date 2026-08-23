@@ -1,10 +1,13 @@
 use base64::Engine;
-use gmail_core::{GmailAuth, GmailClient, GmailClientBuilder, GmailConfig, PerformanceConfig, TokenStorage};
+use gmail_core::{
+    GmailAuth, GmailClient, GmailClientBuilder, GmailConfig, PerformanceConfig, TokenStorage,
+};
 use wiremock::matchers::{method, path_regex};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 const PAYLOAD: &[u8] = b"PDF-ish attachment body \x00\x01\x02 binary safe";
-const RAW_RFC822: &str = "From: a@example.com\r\nTo: b@example.com\r\nSubject: hi\r\n\r\nbody \x00\x01 here";
+const RAW_RFC822: &str =
+    "From: a@example.com\r\nTo: b@example.com\r\nSubject: hi\r\n\r\nbody \x00\x01 here";
 
 fn b64(input: &[u8]) -> String {
     base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(input)
@@ -42,7 +45,10 @@ async fn download_attachment_to_writes_exact_bytes() {
     let client = test_client(&server.uri()).await;
     let dir = tempfile::tempdir().unwrap();
     let out = dir.path().join("a.bin");
-    let n = client.download_attachment_to("msg1", "att1", &out).await.unwrap();
+    let n = client
+        .download_attachment_to("msg1", "att1", &out)
+        .await
+        .unwrap();
     assert_eq!(n as usize, PAYLOAD.len());
     assert_eq!(std::fs::read(&out).unwrap(), PAYLOAD);
 }

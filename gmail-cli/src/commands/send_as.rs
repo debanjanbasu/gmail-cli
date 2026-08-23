@@ -1,9 +1,9 @@
 //! Send-as CLI commands
 
-use crate::output::{print_output, OutputFormat};
-use gmail_core::{GmailClient, CreateSendAsOptions, UpdateSendAsOptions};
-use clap::{Args, Subcommand};
+use crate::output::{OutputFormat, print_output};
 use anyhow::Result;
+use clap::{Args, Subcommand};
+use gmail_core::{CreateSendAsOptions, GmailClient, UpdateSendAsOptions};
 
 #[derive(Subcommand, Debug)]
 pub enum SendAsCommands {
@@ -30,7 +30,7 @@ pub struct ListArgs {
 pub struct GetArgs {
     /// Send-as email address
     pub send_as_email: String,
-    
+
     /// Output format
     #[arg(short, long, value_enum, default_value = "json")]
     pub format: OutputFormat,
@@ -40,23 +40,23 @@ pub struct GetArgs {
 pub struct CreateArgs {
     /// Send-as email address
     pub send_as_email: String,
-    
+
     /// Display name
     #[arg(long)]
     pub display_name: Option<String>,
-    
+
     /// Reply-to address
     #[arg(long)]
     pub reply_to: Option<String>,
-    
+
     /// Signature
     #[arg(long)]
     pub signature: Option<String>,
-    
+
     /// Treat as alias
     #[arg(long)]
     pub treat_as_alias: Option<bool>,
-    
+
     /// Output format
     #[arg(short, long, value_enum, default_value = "json")]
     pub format: OutputFormat,
@@ -66,23 +66,23 @@ pub struct CreateArgs {
 pub struct UpdateArgs {
     /// Send-as email address
     pub send_as_email: String,
-    
+
     /// Display name
     #[arg(long)]
     pub display_name: Option<String>,
-    
+
     /// Reply-to address
     #[arg(long)]
     pub reply_to: Option<String>,
-    
+
     /// Signature
     #[arg(long)]
     pub signature: Option<String>,
-    
+
     /// Treat as alias
     #[arg(long)]
     pub treat_as_alias: Option<bool>,
-    
+
     /// Output format
     #[arg(short, long, value_enum, default_value = "json")]
     pub format: OutputFormat,
@@ -94,10 +94,7 @@ pub struct DeleteArgs {
     pub send_as_email: String,
 }
 
-pub async fn handle_send_as_cmd(
-    client: &GmailClient,
-    cmd: SendAsCommands,
-) -> Result<()> {
+pub async fn handle_send_as_cmd(client: &GmailClient, cmd: SendAsCommands) -> Result<()> {
     match cmd {
         SendAsCommands::List(args) => {
             let send_as = client.list_send_as().await?;

@@ -10,10 +10,12 @@ impl super::GmailClient {
 
     /// Get thread by ID
     pub async fn get_thread(&self, thread_id: &str) -> Result<Thread> {
-        let response = self.execute_with_retry(
-            self.http_client
-                .get(self.api_url(&format!("users/me/threads/{}", thread_id))?)
-        ).await?;
+        let response = self
+            .execute_with_retry(
+                self.http_client
+                    .get(self.api_url(&format!("users/me/threads/{}", thread_id))?),
+            )
+            .await?;
         Ok(response.json().await?)
     }
 
@@ -28,12 +30,13 @@ impl super::GmailClient {
             add_label_ids: add_labels.to_vec(),
             remove_label_ids: remove_labels.to_vec(),
         };
-        
+
         self.execute_with_retry(
             self.http_client
                 .post(self.api_url(&format!("users/me/threads/{}/modify", thread_id))?)
-                .json(&request)
-        ).await?;
+                .json(&request),
+        )
+        .await?;
         Ok(())
     }
 
@@ -41,8 +44,9 @@ impl super::GmailClient {
     pub async fn trash_thread(&self, thread_id: &str) -> Result<()> {
         self.execute_with_retry(
             self.http_client
-                .post(self.api_url(&format!("users/me/threads/{}/trash", thread_id))?)
-        ).await?;
+                .post(self.api_url(&format!("users/me/threads/{}/trash", thread_id))?),
+        )
+        .await?;
         Ok(())
     }
 
@@ -50,8 +54,9 @@ impl super::GmailClient {
     pub async fn untrash_thread(&self, thread_id: &str) -> Result<()> {
         self.execute_with_retry(
             self.http_client
-                .post(self.api_url(&format!("users/me/threads/{}/untrash", thread_id))?)
-        ).await?;
+                .post(self.api_url(&format!("users/me/threads/{}/untrash", thread_id))?),
+        )
+        .await?;
         Ok(())
     }
 
@@ -59,8 +64,9 @@ impl super::GmailClient {
     pub async fn delete_thread(&self, thread_id: &str) -> Result<()> {
         self.execute_with_retry(
             self.http_client
-                .delete(self.api_url(&format!("users/me/threads/{}", thread_id))?)
-        ).await?;
+                .delete(self.api_url(&format!("users/me/threads/{}", thread_id))?),
+        )
+        .await?;
         Ok(())
     }
 }

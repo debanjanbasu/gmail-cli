@@ -47,7 +47,10 @@ async fn rejected_refresh_token_returns_auth_error_without_oauth_flow() {
         .expect("get_access_token must fail fast, not wait on an OAuth callback timeout");
 
     let err = result.expect_err("a rejected refresh token must yield an error");
-    assert!(matches!(err, GmailError::Auth(_)), "unexpected error: {err:?}");
+    assert!(
+        matches!(err, GmailError::Auth(_)),
+        "unexpected error: {err:?}"
+    );
     let message = err.to_string();
     assert!(
         message.contains("invalid_grant"),
@@ -91,8 +94,6 @@ async fn successful_refresh_still_updates_the_access_token() {
     // The happy path persists the refreshed token to the cache dir; clean up
     // so the test never leaves a fake credential on the machine.
     if let Some(cache) = dirs::cache_dir() {
-        let _ = std::fs::remove_file(
-            cache.join("gmail-opencode").join("token.json"),
-        );
+        let _ = std::fs::remove_file(cache.join("gmail-opencode").join("token.json"));
     }
 }

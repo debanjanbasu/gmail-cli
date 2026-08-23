@@ -1,6 +1,8 @@
 use base64::Engine;
 use gmail_core::client::{StreamAttachment, mime_message_stream};
-use gmail_core::{GmailAuth, GmailClient, GmailClientBuilder, GmailConfig, PerformanceConfig, TokenStorage};
+use gmail_core::{
+    GmailAuth, GmailClient, GmailClientBuilder, GmailConfig, PerformanceConfig, TokenStorage,
+};
 use tokio_util::io::ReaderStream;
 use wiremock::matchers::{method, path_regex};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -60,14 +62,20 @@ async fn mime_stream_assembles_headers_body_and_attachments() {
         mime_type: "text/plain".into(),
     }];
     let msg = client
-        .send_mime_stream(mime_message_stream("a@b.c", "Subj", "hello", atts, None), None)
+        .send_mime_stream(
+            mime_message_stream("a@b.c", "Subj", "hello", atts, None),
+            None,
+        )
         .await
         .unwrap();
     assert_eq!(msg.id.as_str(), "m1");
 
     let recorded = &server.received_requests().await.unwrap()[0];
     assert_eq!(
-        recorded.headers.get("content-type").and_then(|v| v.to_str().ok()),
+        recorded
+            .headers
+            .get("content-type")
+            .and_then(|v| v.to_str().ok()),
         Some("message/rfc822")
     );
     let body = String::from_utf8(recorded.body.clone()).unwrap();
@@ -141,7 +149,10 @@ async fn import_streams_rfc822_to_media_endpoint() {
 
     let client = test_client(&server.uri()).await;
     let file = tokio::fs::File::open(&path).await.unwrap();
-    let msg = client.import_stream(ReaderStream::new(file), true).await.unwrap();
+    let msg = client
+        .import_stream(ReaderStream::new(file), true)
+        .await
+        .unwrap();
     assert_eq!(msg.id.as_str(), "m3");
 
     let recorded = &server.received_requests().await.unwrap()[0];

@@ -34,11 +34,13 @@ impl super::GmailClient {
 
     /// Get message raw (RFC 822) bytes with a single output allocation
     pub async fn get_message_raw_bytes(&self, message_id: &str) -> Result<Bytes> {
-        let response = self.execute_with_retry(
-            self.http_client
-                .get(self.api_url(&format!("users/me/messages/{}", message_id))?)
-                .query(&[("format", "raw")])
-        ).await?;
+        let response = self
+            .execute_with_retry(
+                self.http_client
+                    .get(self.api_url(&format!("users/me/messages/{}", message_id))?)
+                    .query(&[("format", "raw")]),
+            )
+            .await?;
 
         let json: serde_json::Value = response.json().await?;
         let data = json
@@ -56,11 +58,17 @@ impl super::GmailClient {
     }
 
     /// Get attachment
-    pub async fn get_attachment(&self, message_id: &str, attachment_id: &str) -> Result<Attachment> {
-        let response = self.execute_with_retry(
-            self.http_client
-                .get(self.api_url(&format!("users/me/messages/{}/attachments/{}", message_id, attachment_id))?)
-        ).await?;
+    pub async fn get_attachment(
+        &self,
+        message_id: &str,
+        attachment_id: &str,
+    ) -> Result<Attachment> {
+        let response = self
+            .execute_with_retry(self.http_client.get(self.api_url(&format!(
+                "users/me/messages/{}/attachments/{}",
+                message_id, attachment_id
+            ))?))
+            .await?;
         Ok(response.json().await?)
     }
 
@@ -70,12 +78,12 @@ impl super::GmailClient {
         message_id: &str,
         attachment_id: &str,
     ) -> Result<Bytes> {
-        let response = self.execute_with_retry(
-            self.http_client.get(self.api_url(&format!(
+        let response = self
+            .execute_with_retry(self.http_client.get(self.api_url(&format!(
                 "users/me/messages/{}/attachments/{}",
                 message_id, attachment_id
-            ))?),
-        ).await?;
+            ))?))
+            .await?;
 
         let json: serde_json::Value = response.json().await?;
         let data = json
@@ -113,19 +121,24 @@ impl super::GmailClient {
     pub async fn send(&self, to: &str, subject: &str, body: &str) -> Result<Message> {
         let email = build_email(to, subject, body, None, None)?;
         let raw = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(email.as_bytes());
-        
-        let request = SendMessageRequest { raw, thread_id: None };
-        
-        let response = self.execute_with_retry(
-            self.http_client
-                .post(self.api_url("users/me/messages/send")?)
-                .json(&request)
-        ).await?;
-        
+
+        let request = SendMessageRequest {
+            raw,
+            thread_id: None,
+        };
+
+        let response = self
+            .execute_with_retry(
+                self.http_client
+                    .post(self.api_url("users/me/messages/send")?)
+                    .json(&request),
+            )
+            .await?;
+
         Ok(response.json().await?)
     }
 
-/// Send email with CC/BCC
+    /// Send email with CC/BCC
     pub async fn send_with_options(
         &self,
         to: &str,
@@ -136,15 +149,20 @@ impl super::GmailClient {
     ) -> Result<Message> {
         let email = build_email(to, subject, body, cc, bcc)?;
         let raw = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(email.as_bytes());
-        
-        let request = SendMessageRequest { raw, thread_id: None };
-        
-        let response = self.execute_with_retry(
-            self.http_client
-                .post(self.api_url("users/me/messages/send")?)
-                .json(&request)
-        ).await?;
-        
+
+        let request = SendMessageRequest {
+            raw,
+            thread_id: None,
+        };
+
+        let response = self
+            .execute_with_retry(
+                self.http_client
+                    .post(self.api_url("users/me/messages/send")?)
+                    .json(&request),
+            )
+            .await?;
+
         Ok(response.json().await?)
     }
 
@@ -157,14 +175,15 @@ impl super::GmailClient {
         attachments: Vec<AttachmentData>,
         thread_id: Option<&str>,
     ) -> Result<Message> {
-        let boundary = format!("----gmail_boundary_{}_{}", 
+        let boundary = format!(
+            "----gmail_boundary_{}_{}",
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_millis())
                 .unwrap_or(0),
             rand::random::<u32>()
         );
-        
+
         let mut message_parts = vec![
             format!("To: {}", to),
             format!("Subject: {}", subject),
@@ -176,7 +195,7 @@ impl super::GmailClient {
             "".to_string(),
             body.to_string(),
         ];
-        
+
         for att in attachments {
             let base64_content = base64::engine::general_purpose::STANDARD.encode(&att.content);
             message_parts.extend(vec![
@@ -184,27 +203,36 @@ impl super::GmailClient {
                 format!("--{}", boundary),
                 format!("Content-Type: {}", att.mime_type),
                 "Content-Transfer-Encoding: base64".to_string(),
-                format!("Content-Disposition: attachment; filename=\"{}\"", att.filename),
+                format!(
+                    "Content-Disposition: attachment; filename=\"{}\"",
+                    att.filename
+                ),
                 "".to_string(),
                 base64_content,
             ]);
         }
-        
-        message_parts.extend(vec!["".to_string(), format!("--{}--", boundary), "".to_string()]);
+
+        message_parts.extend(vec![
+            "".to_string(),
+            format!("--{}--", boundary),
+            "".to_string(),
+        ]);
         let email = message_parts.join("\r\n");
         let raw = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(email.as_bytes());
-        
-        let request = SendMessageRequest { 
-            raw, 
-            thread_id: thread_id.map(|s| s.to_string()) 
+
+        let request = SendMessageRequest {
+            raw,
+            thread_id: thread_id.map(|s| s.to_string()),
         };
-        
-        let response = self.execute_with_retry(
-            self.http_client
-                .post(self.api_url("users/me/messages/send")?)
-                .json(&request)
-        ).await?;
-        
+
+        let response = self
+            .execute_with_retry(
+                self.http_client
+                    .post(self.api_url("users/me/messages/send")?)
+                    .json(&request),
+            )
+            .await?;
+
         Ok(response.json().await?)
     }
 
@@ -214,19 +242,23 @@ impl super::GmailClient {
 
     /// Trash message
     pub async fn trash_message(&self, message_id: &str) -> Result<Message> {
-        let response = self.execute_with_retry(
-            self.http_client
-                .post(self.api_url(&format!("users/me/messages/{}/trash", message_id))?)
-        ).await?;
+        let response = self
+            .execute_with_retry(
+                self.http_client
+                    .post(self.api_url(&format!("users/me/messages/{}/trash", message_id))?),
+            )
+            .await?;
         Ok(response.json().await?)
     }
 
     /// Untrash message
     pub async fn untrash_message(&self, message_id: &str) -> Result<Message> {
-        let response = self.execute_with_retry(
-            self.http_client
-                .post(self.api_url(&format!("users/me/messages/{}/untrash", message_id))?)
-        ).await?;
+        let response = self
+            .execute_with_retry(
+                self.http_client
+                    .post(self.api_url(&format!("users/me/messages/{}/untrash", message_id))?),
+            )
+            .await?;
         Ok(response.json().await?)
     }
 
@@ -234,8 +266,9 @@ impl super::GmailClient {
     pub async fn delete_message(&self, message_id: &str) -> Result<()> {
         self.execute_with_retry(
             self.http_client
-                .delete(self.api_url(&format!("users/me/messages/{}", message_id))?)
-        ).await?;
+                .delete(self.api_url(&format!("users/me/messages/{}", message_id))?),
+        )
+        .await?;
         Ok(())
     }
 
@@ -244,8 +277,9 @@ impl super::GmailClient {
         self.execute_with_retry(
             self.http_client
                 .post(self.api_url("users/me/messages/batchDelete")?)
-                .json(&serde_json::json!({ "ids": message_ids }))
-        ).await?;
+                .json(&serde_json::json!({ "ids": message_ids })),
+        )
+        .await?;
         Ok(())
     }
 
@@ -256,7 +290,7 @@ impl super::GmailClient {
     /// Import message from RFC 822
     pub async fn import_message(&self, raw_rfc822: &str, deleted: bool) -> Result<Message> {
         let raw = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(raw_rfc822.as_bytes());
-        
+
         let request = ImportMessageRequest {
             raw,
             internal_date_source: Some("dateHeader".to_string()),
@@ -264,12 +298,14 @@ impl super::GmailClient {
             never_spam: Some(false),
             process_for_calendar: Some(false),
         };
-        
-        let response = self.execute_with_retry(
-            self.http_client
-                .post(self.api_url("users/me/messages/import")?)
-                .json(&request)
-        ).await?;
+
+        let response = self
+            .execute_with_retry(
+                self.http_client
+                    .post(self.api_url("users/me/messages/import")?)
+                    .json(&request),
+            )
+            .await?;
         Ok(response.json().await?)
     }
 }

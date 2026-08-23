@@ -1,9 +1,9 @@
 //! Message operations CLI commands (trash, delete, label, batch)
 
-use crate::output::{print_output, OutputFormat};
-use gmail_core::GmailClient;
-use clap::{Args, Subcommand};
+use crate::output::{OutputFormat, print_output};
 use anyhow::Result;
+use clap::{Args, Subcommand};
+use gmail_core::GmailClient;
 
 #[derive(Subcommand, Debug)]
 pub enum MessageOpsCommands {
@@ -25,15 +25,15 @@ pub enum MessageOpsCommands {
 pub struct LabelArgs {
     /// Message ID
     pub message_id: String,
-    
+
     /// Labels to add (comma-separated)
     #[arg(long, value_delimiter = ',')]
     pub add: Vec<String>,
-    
+
     /// Labels to remove (comma-separated)
     #[arg(long, value_delimiter = ',')]
     pub remove: Vec<String>,
-    
+
     /// Output format
     #[arg(short, long, value_enum, default_value = "json")]
     pub format: OutputFormat,
@@ -43,7 +43,7 @@ pub struct LabelArgs {
 pub struct TrashArgs {
     /// Message ID
     pub message_id: String,
-    
+
     /// Output format
     #[arg(short, long, value_enum, default_value = "json")]
     pub format: OutputFormat,
@@ -53,7 +53,7 @@ pub struct TrashArgs {
 pub struct UntrashArgs {
     /// Message ID
     pub message_id: String,
-    
+
     /// Output format
     #[arg(short, long, value_enum, default_value = "json")]
     pub format: OutputFormat,
@@ -70,11 +70,11 @@ pub struct BatchLabelArgs {
     /// Message IDs (comma-separated)
     #[arg(long, value_delimiter = ',')]
     pub ids: Vec<String>,
-    
+
     /// Labels to add (comma-separated)
     #[arg(long, value_delimiter = ',')]
     pub add: Vec<String>,
-    
+
     /// Labels to remove (comma-separated)
     #[arg(long, value_delimiter = ',')]
     pub remove: Vec<String>,
@@ -87,13 +87,12 @@ pub struct BatchDeleteArgs {
     pub ids: Vec<String>,
 }
 
-pub async fn handle_message_ops_cmd(
-    client: &GmailClient,
-    cmd: MessageOpsCommands,
-) -> Result<()> {
+pub async fn handle_message_ops_cmd(client: &GmailClient, cmd: MessageOpsCommands) -> Result<()> {
     match cmd {
         MessageOpsCommands::Label(args) => {
-            let msg = client.modify_labels(&args.message_id, &args.add, &args.remove).await?;
+            let msg = client
+                .modify_labels(&args.message_id, &args.add, &args.remove)
+                .await?;
             print_output(&msg, args.format)?;
         }
         MessageOpsCommands::Trash(args) => {
@@ -109,7 +108,9 @@ pub async fn handle_message_ops_cmd(
             println!("Message {} permanently deleted", args.message_id);
         }
         MessageOpsCommands::BatchLabel(args) => {
-            client.batch_modify_labels(&args.ids, &args.add, &args.remove).await?;
+            client
+                .batch_modify_labels(&args.ids, &args.add, &args.remove)
+                .await?;
             println!("Labels updated for {} messages", args.ids.len());
         }
         MessageOpsCommands::BatchDelete(args) => {

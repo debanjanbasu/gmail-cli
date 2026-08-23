@@ -1,9 +1,9 @@
 //! Label-related CLI commands
 
-use crate::output::{print_output, OutputFormat};
-use gmail_core::{GmailClient, LabelColor, CreateLabelOptions, UpdateLabelOptions};
-use clap::{Args, Subcommand};
+use crate::output::{OutputFormat, print_output};
 use anyhow::Result;
+use clap::{Args, Subcommand};
+use gmail_core::{CreateLabelOptions, GmailClient, LabelColor, UpdateLabelOptions};
 
 #[derive(Subcommand, Debug)]
 pub enum LabelCommands {
@@ -30,7 +30,7 @@ pub struct ListArgs {
 pub struct GetArgs {
     /// Label ID
     pub label_id: String,
-    
+
     /// Output format
     #[arg(short, long, value_enum, default_value = "json")]
     pub format: OutputFormat,
@@ -40,23 +40,23 @@ pub struct GetArgs {
 pub struct CreateArgs {
     /// Label name
     pub name: String,
-    
+
     /// Label list visibility
     #[arg(long, value_enum)]
     pub label_list_visibility: Option<LabelListVisibility>,
-    
+
     /// Message list visibility
     #[arg(long, value_enum)]
     pub message_list_visibility: Option<MessageListVisibility>,
-    
+
     /// Background color (hex)
     #[arg(long)]
     pub color_bg: Option<String>,
-    
+
     /// Text color (hex)
     #[arg(long)]
     pub color_text: Option<String>,
-    
+
     /// Output format
     #[arg(short, long, value_enum, default_value = "json")]
     pub format: OutputFormat,
@@ -66,27 +66,27 @@ pub struct CreateArgs {
 pub struct UpdateArgs {
     /// Label ID
     pub label_id: String,
-    
+
     /// New label name
     #[arg(long)]
     pub name: Option<String>,
-    
+
     /// Label list visibility
     #[arg(long, value_enum)]
     pub label_list_visibility: Option<LabelListVisibility>,
-    
+
     /// Message list visibility
     #[arg(long, value_enum)]
     pub message_list_visibility: Option<MessageListVisibility>,
-    
+
     /// Background color (hex)
     #[arg(long)]
     pub color_bg: Option<String>,
-    
+
     /// Text color (hex)
     #[arg(long)]
     pub color_text: Option<String>,
-    
+
     /// Output format
     #[arg(short, long, value_enum, default_value = "json")]
     pub format: OutputFormat,
@@ -128,10 +128,7 @@ impl From<MessageListVisibility> for String {
     }
 }
 
-pub async fn handle_label_cmd(
-    client: &GmailClient,
-    cmd: LabelCommands,
-) -> Result<()> {
+pub async fn handle_label_cmd(client: &GmailClient, cmd: LabelCommands) -> Result<()> {
     match cmd {
         LabelCommands::List(args) => {
             let labels = client.list_labels().await?;
@@ -150,13 +147,13 @@ pub async fn handle_label_cmd(
             } else {
                 None
             };
-            
+
             let options = CreateLabelOptions {
                 label_list_visibility: args.label_list_visibility.map(|v| v.into()),
                 message_list_visibility: args.message_list_visibility.map(|v| v.into()),
                 color,
             };
-            
+
             let label = client.create_label(&args.name, options).await?;
             print_output(&label, args.format)?;
         }
@@ -169,14 +166,14 @@ pub async fn handle_label_cmd(
             } else {
                 None
             };
-            
+
             let options = UpdateLabelOptions {
                 name: args.name,
                 label_list_visibility: args.label_list_visibility.map(|v| v.into()),
                 message_list_visibility: args.message_list_visibility.map(|v| v.into()),
                 color,
             };
-            
+
             let label = client.update_label(&args.label_id, options).await?;
             print_output(&label, args.format)?;
         }

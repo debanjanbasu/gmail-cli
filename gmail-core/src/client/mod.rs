@@ -3,8 +3,8 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use reqwest::header::{HeaderMap, HeaderValue, ACCEPT_ENCODING, AUTHORIZATION, CONTENT_TYPE};
 use reqwest::Client as ReqwestClient;
+use reqwest::header::{ACCEPT_ENCODING, AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue};
 use tokio::sync::Semaphore;
 use tracing::{debug, info, warn};
 use url::Url;
@@ -13,7 +13,7 @@ use crate::auth::GmailAuth;
 use crate::config::{GmailConfig, PerformanceConfig};
 use crate::error::{GmailError, Result};
 use crate::models::*;
-use crate::runtime::{detect_runtime_features, RuntimeFeatures};
+use crate::runtime::{RuntimeFeatures, detect_runtime_features};
 
 mod drafts;
 mod history;
@@ -46,7 +46,11 @@ pub enum TransportMode {
 /// HTTP/3 wins when requested and the `http3` feature is compiled in;
 /// otherwise HTTP/2 prior knowledge applies when enabled; otherwise ALPN
 /// negotiation defaults apply.
-pub fn resolve_transport_mode(enable_http3: bool, http3_feature: bool, enable_http2: bool) -> TransportMode {
+pub fn resolve_transport_mode(
+    enable_http3: bool,
+    http3_feature: bool,
+    enable_http2: bool,
+) -> TransportMode {
     if enable_http3 && http3_feature {
         TransportMode::Http3PriorKnowledge
     } else if enable_http2 {
@@ -108,7 +112,9 @@ impl GmailClientBuilder {
     }
 
     pub async fn build(self) -> Result<GmailClient> {
-        let auth = self.auth.ok_or_else(|| GmailError::Config("Auth is required".into()))?;
+        let auth = self
+            .auth
+            .ok_or_else(|| GmailError::Config("Auth is required".into()))?;
         let base_url = match self.base_url {
             Some(url) => url,
             None => Url::parse(DEFAULT_BASE_URL)
@@ -126,8 +132,9 @@ impl GmailClientBuilder {
             http3_effective: requested,
             ..Default::default()
         };
-        let mut http_client =
-            self.http_client.unwrap_or_else(|| build_http_client(&self.config.performance));
+        let mut http_client = self
+            .http_client
+            .unwrap_or_else(|| build_http_client(&self.config.performance));
 
         if requested {
             match probe(&http_client, &base_url, &auth, reqwest::Version::HTTP_3).await {
@@ -147,7 +154,15 @@ impl GmailClientBuilder {
             info.negotiated_version = "not-probed".into();
         }
 
-        GmailClient::new(auth, http_client, self.config, base_url, upload_base_url, info).await
+        GmailClient::new(
+            auth,
+            http_client,
+            self.config,
+            base_url,
+            upload_base_url,
+            info,
+        )
+        .await
     }
 }
 
@@ -182,9 +197,7 @@ impl GmailClient {
 
         info!(
             "GmailClient initialized: http3={}, io_uring={}, concurrency={}",
-            runtime_features.http3,
-            runtime_features.io_uring,
-            max_concurrent
+            runtime_features.http3, runtime_features.io_uring, max_concurrent
         );
 
         Ok(Self {
@@ -221,7 +234,9 @@ impl GmailClient {
 
     /// Build API URL with proper error handling
     fn api_url(&self, path: &str) -> Result<Url> {
-        self.base_url.join(path).map_err(|e| GmailError::Config(format!("Invalid API URL: {}", e)))
+        self.base_url
+            .join(path)
+            .map_err(|e| GmailError::Config(format!("Invalid API URL: {}", e)))
     }
 
     // ���������������������������������������������������������������������������������������������������������������������������������������
@@ -272,45 +287,44 @@ impl GmailClient {
 
         let client = self.clone();
 
-        unfold(
-            Some((query, batch_size, None::<String>)),
-            move |state| {
-                let client = client.clone();
-                async move {
-                    let (query, batch_size, page_token) = state?;
-                    let mut request = client
-                        .http_client
-                        .get(client.api_url("users/me/messages").ok()?)
-                        .query(&[("q", query.as_str()), ("maxResults", &batch_size.to_string())]);
+        unfold(Some((query, batch_size, None::<String>)), move |state| {
+            let client = client.clone();
+            async move {
+                let (query, batch_size, page_token) = state?;
+                let mut request = client
+                    .http_client
+                    .get(client.api_url("users/me/messages").ok()?)
+                    .query(&[
+                        ("q", query.as_str()),
+                        ("maxResults", &batch_size.to_string()),
+                    ]);
 
-                    if let Some(token) = page_token {
-                        request = request.query(&[("pageToken", token)]);
-                    }
-
-                    let response = client.execute_with_retry(request).await.ok()?;
-                    let search_response = response.json::<SearchResponse>().await.ok()?;
-
-                    if search_response.messages.is_empty() {
-                        return None;
-                    }
-
-                    let next_state = Some((
-                        query.clone(),
-                        batch_size,
-                        search_response.next_page_token,
-                    ));
-
-                    Some((Ok(search_response.messages), next_state))
+                if let Some(token) = page_token {
+                    request = request.query(&[("pageToken", token)]);
                 }
-            },
-        )
+
+                let response = client.execute_with_retry(request).await.ok()?;
+                let search_response = response.json::<SearchResponse>().await.ok()?;
+
+                if search_response.messages.is_empty() {
+                    return None;
+                }
+
+                let next_state = Some((query.clone(), batch_size, search_response.next_page_token));
+
+                Some((Ok(search_response.messages), next_state))
+            }
+        })
     }
 
     // ══════════════════════════════════════════════════════════════════
     // Internal: Execute with retry, rate limiting, and concurrency control
     // ═════════════════════════════════════════════════════════════════
 
-    async fn execute_with_retry(&self, mut request: reqwest::RequestBuilder) -> Result<reqwest::Response> {
+    async fn execute_with_retry(
+        &self,
+        mut request: reqwest::RequestBuilder,
+    ) -> Result<reqwest::Response> {
         // Acquire semaphore for concurrency control
         let _permit = self
             .semaphore
@@ -345,11 +359,11 @@ impl GmailClient {
             match response {
                 Ok(resp) => {
                     let status = resp.status();
-                    
+
                     if status.is_success() {
                         return Ok(resp);
                     }
-                    
+
                     // Handle specific error codes
                     match status.as_u16() {
                         401 => {
@@ -366,11 +380,13 @@ impl GmailClient {
                                 .and_then(|h| h.to_str().ok())
                                 .and_then(|s| s.parse::<u64>().ok())
                                 .unwrap_or(60);
-                            return Err(GmailError::RateLimited { retry_after_secs: retry_after });
+                            return Err(GmailError::RateLimited {
+                                retry_after_secs: retry_after,
+                            });
                         }
                         403 => {
                             return Err(GmailError::PermissionDenied(
-                                "Insufficient permissions".into()
+                                "Insufficient permissions".into(),
                             ));
                         }
                         404 => {
@@ -404,7 +420,12 @@ impl GmailClient {
             // Exponential backoff
             if attempt < self.config.performance.retry_attempts {
                 let backoff = self.config.performance.retry_backoff_ms * (2_u64.pow(attempt));
-                debug!("Request failed, retrying in {:?} (attempt {}/{})", backoff, attempt + 1, self.config.performance.retry_attempts);
+                debug!(
+                    "Request failed, retrying in {:?} (attempt {}/{})",
+                    backoff,
+                    attempt + 1,
+                    self.config.performance.retry_attempts
+                );
                 tokio::time::sleep(Duration::from_millis(backoff)).await;
             }
         }
@@ -423,20 +444,20 @@ fn build_email(
 ) -> Result<String> {
     let mut email = String::new();
     email.push_str(&format!("To: {}\r\n", to));
-    
+
     if let Some(cc) = cc {
         email.push_str(&format!("Cc: {}\r\n", cc));
     }
-    
+
     if let Some(bcc) = bcc {
         email.push_str(&format!("Bcc: {}\r\n", bcc));
     }
-    
+
     email.push_str(&format!("Subject: {}\r\n", subject));
     email.push_str("Content-Type: text/plain; charset=utf-8\r\n");
     email.push_str("\r\n");
     email.push_str(body);
-    
+
     Ok(email)
 }
 
@@ -446,7 +467,10 @@ fn build_email(
 /// itself carries `version(HTTP_3)`; client-level `http3_prior_knowledge()`
 /// merely builds the QUIC connector. When h3 is effective, every API request
 /// must be explicitly versioned or it silently rides TCP.
-pub fn apply_transport_version(builder: reqwest::RequestBuilder, http3_effective: bool) -> reqwest::RequestBuilder {
+pub fn apply_transport_version(
+    builder: reqwest::RequestBuilder,
+    http3_effective: bool,
+) -> reqwest::RequestBuilder {
     if http3_effective {
         builder.version(reqwest::Version::HTTP_3)
     } else {
@@ -487,10 +511,16 @@ fn build_http_client(perf: &PerformanceConfig) -> ReqwestClient {
         .zstd(perf.enable_zstd);
 
     // Transport protocol: prior-knowledge modes are mutually exclusive.
-    match resolve_transport_mode(perf.enable_http3, cfg!(feature = "http3"), perf.enable_http2) {
+    match resolve_transport_mode(
+        perf.enable_http3,
+        cfg!(feature = "http3"),
+        perf.enable_http2,
+    ) {
         TransportMode::Http3PriorKnowledge => {
             #[cfg(feature = "http3")]
-            { builder = builder.http3_prior_knowledge(); }
+            {
+                builder = builder.http3_prior_knowledge();
+            }
         }
         TransportMode::Http2PriorKnowledge => {
             builder = builder.http2_prior_knowledge();
@@ -500,7 +530,10 @@ fn build_http_client(perf: &PerformanceConfig) -> ReqwestClient {
 
     // Default headers
     let mut headers = HeaderMap::new();
-    headers.insert(ACCEPT_ENCODING, HeaderValue::from_static("zstd, br, gzip, deflate"));
+    headers.insert(
+        ACCEPT_ENCODING,
+        HeaderValue::from_static("zstd, br, gzip, deflate"),
+    );
     headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
     builder = builder.default_headers(headers);
 

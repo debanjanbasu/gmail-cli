@@ -2,8 +2,8 @@
 #![allow(clippy::trailing_empty_array)]
 
 use gmail_core::{
-    AttachmentData, CreateLabelOptions, CreateSendAsOptions, LabelColor,
-    UpdateLabelOptions, UpdateSendAsOptions,
+    AttachmentData, CreateLabelOptions, CreateSendAsOptions, LabelColor, UpdateLabelOptions,
+    UpdateSendAsOptions,
 };
 use napi_derive::napi;
 
@@ -748,10 +748,7 @@ impl Gmail {
     ///
     /// Returns an error if the Gmail API request fails.
     #[napi]
-    pub async fn create_send_as(
-        &self,
-        options: NapiCreateSendAsOptions,
-    ) -> napi::Result<String> {
+    pub async fn create_send_as(&self, options: NapiCreateSendAsOptions) -> napi::Result<String> {
         let options: CreateSendAsOptions = options.into();
         let send_as = self
             .client
@@ -832,11 +829,7 @@ impl Gmail {
     ///
     /// Returns an error if the Gmail API request fails.
     #[napi]
-    pub async fn import_message(
-        &self,
-        raw_rfc822: String,
-        deleted: bool,
-    ) -> napi::Result<String> {
+    pub async fn import_message(&self, raw_rfc822: String, deleted: bool) -> napi::Result<String> {
         let message = self
             .client
             .import_message(&raw_rfc822, deleted)

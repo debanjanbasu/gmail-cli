@@ -1,10 +1,10 @@
 //! Message-related CLI commands
 
-use crate::output::{print_output, OutputFormat};
-use gmail_core::GmailClient;
-use clap::{Args, Subcommand};
+use crate::output::{OutputFormat, print_output};
 use anyhow::Result;
 use base64::Engine;
+use clap::{Args, Subcommand};
+use gmail_core::GmailClient;
 
 #[derive(Subcommand, Debug)]
 pub enum MessageCommands {
@@ -22,15 +22,15 @@ pub enum MessageCommands {
 pub struct SearchArgs {
     /// Gmail search query (e.g., "in:inbox from:github.com")
     pub query: String,
-    
+
     /// Maximum number of results
     #[arg(short, long, default_value = "10")]
     pub max: usize,
-    
+
     /// Page token for pagination
     #[arg(long)]
     pub page: Option<String>,
-    
+
     /// Output format
     #[arg(short, long, value_enum, default_value = "json")]
     pub format: OutputFormat,
@@ -40,7 +40,7 @@ pub struct SearchArgs {
 pub struct ThreadArgs {
     /// Thread ID
     pub thread_id: String,
-    
+
     /// Output format
     #[arg(short, long, value_enum, default_value = "json")]
     pub format: OutputFormat,
@@ -50,11 +50,11 @@ pub struct ThreadArgs {
 pub struct GetArgs {
     /// Message ID
     pub message_id: String,
-    
+
     /// Message format
     #[arg(short, long, value_enum, default_value = "full")]
     pub format: MessageFormat,
-    
+
     /// Output format
     #[arg(short, long, value_enum, default_value = "json")]
     pub output: OutputFormat,
@@ -64,10 +64,10 @@ pub struct GetArgs {
 pub struct AttachmentArgs {
     /// Message ID
     pub message_id: String,
-    
+
     /// Attachment ID
     pub attachment_id: String,
-    
+
     /// Output file path (optional, prints base64 to stdout if not provided)
     #[arg(short, long)]
     pub output: Option<String>,
@@ -82,10 +82,7 @@ pub enum MessageFormat {
     Raw,
 }
 
-pub async fn handle_message_cmd(
-    client: &GmailClient,
-    cmd: MessageCommands,
-) -> Result<()> {
+pub async fn handle_message_cmd(client: &GmailClient, cmd: MessageCommands) -> Result<()> {
     match cmd {
         MessageCommands::Search(args) => {
             let results = client.search(&args.query, args.max).await?;

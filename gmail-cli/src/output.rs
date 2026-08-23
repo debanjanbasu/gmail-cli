@@ -1,10 +1,10 @@
 //! Output formatting for CLI commands
 
 use clap::ValueEnum;
+use comfy_table::{Attribute, Cell, Color, ContentArrangement, Table};
 use serde::Serialize;
 use serde_json::Value;
 use std::io::{self, Write};
-use comfy_table::{Table, Cell, Attribute, Color, ContentArrangement};
 
 #[derive(Debug, Clone, ValueEnum, Default)]
 pub enum OutputFormat {
@@ -19,7 +19,7 @@ pub enum OutputFormat {
 pub fn print_output<T: Serialize>(value: &T, format: OutputFormat) -> io::Result<()> {
     let stdout = io::stdout();
     let mut handle = stdout.lock();
-    
+
     match format {
         OutputFormat::Json => {
             let json = serde_json::to_string(value)?;
@@ -55,7 +55,7 @@ fn print_table<T: Serialize>(value: &T, handle: &mut dyn Write) -> io::Result<()
             if arr.is_empty() {
                 return Ok(());
             }
-            
+
             if let Some(first) = arr.first() {
                 if let Value::Object(_) = first {
                     print_object_array_as_table(&arr, handle)?;
@@ -79,11 +79,11 @@ fn print_object_array_as_table(arr: &[Value], handle: &mut dyn Write) -> io::Res
     if arr.is_empty() {
         return Ok(());
     }
-    
+
     let mut table = Table::new();
     table.set_content_arrangement(ContentArrangement::Dynamic);
     table.set_header(vec!["Field", "Value"]);
-    
+
     for item in arr {
         if let Value::Object(obj) = item {
             for (key, val) in obj {
@@ -102,14 +102,14 @@ fn print_object_array_as_table(arr: &[Value], handle: &mut dyn Write) -> io::Res
             table.add_row(vec![Cell::new("---"), Cell::new("---")]);
         }
     }
-    
+
     writeln!(handle, "{}", table)
 }
 
 fn print_simple_array_as_table(arr: &[Value], handle: &mut dyn Write) -> io::Result<()> {
     let mut table = Table::new();
     table.set_header(vec!["Index", "Value"]);
-    
+
     for (idx, item) in arr.iter().enumerate() {
         let val = match item {
             Value::String(s) => s.clone(),
@@ -120,15 +120,18 @@ fn print_simple_array_as_table(arr: &[Value], handle: &mut dyn Write) -> io::Res
         };
         table.add_row(vec![idx.to_string(), val]);
     }
-    
+
     writeln!(handle, "{}", table)
 }
 
-fn print_object_as_table(obj: &serde_json::Map<String, Value>, handle: &mut dyn Write) -> io::Result<()> {
+fn print_object_as_table(
+    obj: &serde_json::Map<String, Value>,
+    handle: &mut dyn Write,
+) -> io::Result<()> {
     let mut table = Table::new();
     table.set_content_arrangement(ContentArrangement::Dynamic);
     table.set_header(vec!["Field", "Value"]);
-    
+
     for (key, val) in obj {
         let cell_val = match val {
             Value::String(s) => s.clone(),
@@ -139,10 +142,12 @@ fn print_object_as_table(obj: &serde_json::Map<String, Value>, handle: &mut dyn 
             Value::Object(obj) => format!("{{{} fields}}", obj.len()),
         };
         table.add_row(vec![
-            Cell::new(key).add_attribute(Attribute::Bold).fg(Color::Cyan),
+            Cell::new(key)
+                .add_attribute(Attribute::Bold)
+                .fg(Color::Cyan),
             Cell::new(cell_val),
         ]);
     }
-    
+
     writeln!(handle, "{}", table)
 }

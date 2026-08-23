@@ -59,8 +59,7 @@ impl super::GmailAuth {
                         let _ = sender.send((code, state));
                     }
 
-                    let body =
-                        "<h1>Authentication successful! You can close this window.</h1>";
+                    let body = "<h1>Authentication successful! You can close this window.</h1>";
                     let response = format!(
                         "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
                         body.len(),
@@ -83,7 +82,9 @@ impl super::GmailAuth {
         server_handle.abort();
 
         if code.is_empty() {
-            return Err(GmailError::Auth(anyhow!("No authorization code received").into()));
+            return Err(GmailError::Auth(
+                anyhow!("No authorization code received").into(),
+            ));
         }
 
         Ok((code, state))

@@ -29,7 +29,7 @@ pub use config::{GmailConfig, OAuthConfig, PerformanceConfig};
 pub use config_loader::ConfigLoader;
 pub use error::{GmailError, Result};
 pub use models::*;
-pub use runtime::{detect_runtime_features, RuntimeFeatures};
+pub use runtime::{RuntimeFeatures, detect_runtime_features};
 
 /// Prelude for convenient imports
 pub mod prelude {
@@ -39,5 +39,5 @@ pub mod prelude {
     pub use crate::config_loader::ConfigLoader;
     pub use crate::error::{GmailError, Result};
     pub use crate::models::*;
-    pub use crate::runtime::{detect_runtime_features, RuntimeFeatures};
+    pub use crate::runtime::{RuntimeFeatures, detect_runtime_features};
 }

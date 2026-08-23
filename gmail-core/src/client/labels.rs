@@ -8,22 +8,23 @@ impl super::GmailClient {
     // Label Operations
     // ══════════════════════════════════════════════════════════════════
 
-/// List labels
+    /// List labels
     pub async fn list_labels(&self) -> Result<Vec<Label>> {
-        let response = self.execute_with_retry(
-            self.http_client
-                .get(self.api_url("users/me/labels")?)
-        ).await?;
+        let response = self
+            .execute_with_retry(self.http_client.get(self.api_url("users/me/labels")?))
+            .await?;
         let list_response: ListResponse<Label> = response.json().await?;
         Ok(list_response.items)
     }
 
     /// Get label
     pub async fn get_label(&self, label_id: &str) -> Result<Label> {
-        let response = self.execute_with_retry(
-            self.http_client
-                .get(self.api_url(&format!("users/me/labels/{}", label_id))?)
-        ).await?;
+        let response = self
+            .execute_with_retry(
+                self.http_client
+                    .get(self.api_url(&format!("users/me/labels/{}", label_id))?),
+            )
+            .await?;
         Ok(response.json().await?)
     }
 
@@ -35,12 +36,14 @@ impl super::GmailClient {
             message_list_visibility: options.message_list_visibility,
             color: options.color,
         };
-        
-        let response = self.execute_with_retry(
-            self.http_client
-                .post(self.api_url("users/me/labels")?)
-                .json(&request)
-        ).await?;
+
+        let response = self
+            .execute_with_retry(
+                self.http_client
+                    .post(self.api_url("users/me/labels")?)
+                    .json(&request),
+            )
+            .await?;
         Ok(response.json().await?)
     }
 
@@ -52,12 +55,14 @@ impl super::GmailClient {
             message_list_visibility: options.message_list_visibility,
             color: options.color,
         };
-        
-        let response = self.execute_with_retry(
-            self.http_client
-                .put(self.api_url(&format!("users/me/labels/{}", label_id))?)
-                .json(&request)
-        ).await?;
+
+        let response = self
+            .execute_with_retry(
+                self.http_client
+                    .put(self.api_url(&format!("users/me/labels/{}", label_id))?)
+                    .json(&request),
+            )
+            .await?;
         Ok(response.json().await?)
     }
 
@@ -72,12 +77,14 @@ impl super::GmailClient {
             add_label_ids: add_labels.to_vec(),
             remove_label_ids: remove_labels.to_vec(),
         };
-        
-        let response = self.execute_with_retry(
-            self.http_client
-                .post(self.api_url(&format!("users/me/messages/{}/modify", message_id))?)
-                .json(&request)
-        ).await?;
+
+        let response = self
+            .execute_with_retry(
+                self.http_client
+                    .post(self.api_url(&format!("users/me/messages/{}/modify", message_id))?)
+                    .json(&request),
+            )
+            .await?;
         Ok(response.json().await?)
     }
 
@@ -93,12 +100,13 @@ impl super::GmailClient {
             add_label_ids: add_labels.to_vec(),
             remove_label_ids: remove_labels.to_vec(),
         };
-        
+
         self.execute_with_retry(
             self.http_client
                 .post(self.api_url("users/me/messages/batchModify")?)
-                .json(&request)
-        ).await?;
+                .json(&request),
+        )
+        .await?;
         Ok(())
     }
 
@@ -106,8 +114,9 @@ impl super::GmailClient {
     pub async fn delete_label(&self, label_id: &str) -> Result<()> {
         self.execute_with_retry(
             self.http_client
-                .delete(self.api_url(&format!("users/me/labels/{}", label_id))?)
-        ).await?;
+                .delete(self.api_url(&format!("users/me/labels/{}", label_id))?),
+        )
+        .await?;
         Ok(())
     }
 }

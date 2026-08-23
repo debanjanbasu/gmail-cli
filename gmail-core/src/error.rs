@@ -82,8 +82,7 @@ impl GmailError {
             GmailError::Http(e) if e.is_timeout() || e.is_connect() || e.is_request()
         ) || matches!(
             self,
-            GmailError::RateLimited { .. } |
-            GmailError::Timeout(_)
+            GmailError::RateLimited { .. } | GmailError::Timeout(_)
         ) || matches!(
             self,
             GmailError::Api { status, .. } if *status >= 500 || *status == 429

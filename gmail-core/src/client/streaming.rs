@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 use base64::Engine;
 use bytes::Bytes;
 use futures::stream::{Stream, unfold};
-use reqwest::header::{HeaderValue, CONTENT_TYPE};
+use reqwest::header::{CONTENT_TYPE, HeaderValue};
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 
@@ -199,12 +199,14 @@ impl super::GmailClient {
         let _ = thread_id;
         let mut url = self.upload_url("users/me/messages/send")?;
         url.query_pairs_mut().append_pair("uploadType", "media");
-        let response = self.execute_with_retry(
-            self.http_client
-                .post(url)
-                .header(CONTENT_TYPE, HeaderValue::from_static("message/rfc822"))
-                .body(reqwest::Body::wrap_stream(stream)),
-        ).await?;
+        let response = self
+            .execute_with_retry(
+                self.http_client
+                    .post(url)
+                    .header(CONTENT_TYPE, HeaderValue::from_static("message/rfc822"))
+                    .body(reqwest::Body::wrap_stream(stream)),
+            )
+            .await?;
         Ok(response.json().await?)
     }
 
@@ -220,12 +222,14 @@ impl super::GmailClient {
             q.append_pair("internalDateSource", "dateHeader");
             q.append_pair("deleted", &deleted.to_string());
         }
-        let response = self.execute_with_retry(
-            self.http_client
-                .post(url)
-                .header(CONTENT_TYPE, HeaderValue::from_static("message/rfc822"))
-                .body(reqwest::Body::wrap_stream(stream)),
-        ).await?;
+        let response = self
+            .execute_with_retry(
+                self.http_client
+                    .post(url)
+                    .header(CONTENT_TYPE, HeaderValue::from_static("message/rfc822"))
+                    .body(reqwest::Body::wrap_stream(stream)),
+            )
+            .await?;
         Ok(response.json().await?)
     }
 }

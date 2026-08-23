@@ -1,9 +1,9 @@
 //! Draft-related CLI commands
 
-use crate::output::{print_output, OutputFormat};
-use gmail_core::GmailClient;
-use clap::{Args, Subcommand};
+use crate::output::{OutputFormat, print_output};
 use anyhow::Result;
+use clap::{Args, Subcommand};
+use gmail_core::GmailClient;
 
 #[derive(Subcommand, Debug)]
 pub enum DraftCommands {
@@ -25,13 +25,13 @@ pub enum DraftCommands {
 pub struct CreateArgs {
     /// Recipient email
     pub to: String,
-    
+
     /// Subject
     pub subject: String,
-    
+
     /// Body text
     pub body: String,
-    
+
     /// Output format
     #[arg(short, long, value_enum, default_value = "json")]
     pub format: OutputFormat,
@@ -42,7 +42,7 @@ pub struct ListArgs {
     /// Maximum number of results
     #[arg(short, long, default_value = "10")]
     pub max: usize,
-    
+
     /// Output format
     #[arg(short, long, value_enum, default_value = "json")]
     pub format: OutputFormat,
@@ -52,7 +52,7 @@ pub struct ListArgs {
 pub struct GetArgs {
     /// Draft ID
     pub draft_id: String,
-    
+
     /// Output format
     #[arg(short, long, value_enum, default_value = "json")]
     pub format: OutputFormat,
@@ -62,16 +62,16 @@ pub struct GetArgs {
 pub struct UpdateArgs {
     /// Draft ID
     pub draft_id: String,
-    
+
     /// Recipient email
     pub to: String,
-    
+
     /// Subject
     pub subject: String,
-    
+
     /// Body text
     pub body: String,
-    
+
     /// Output format
     #[arg(short, long, value_enum, default_value = "json")]
     pub format: OutputFormat,
@@ -87,19 +87,18 @@ pub struct DeleteArgs {
 pub struct SendArgs {
     /// Draft ID
     pub draft_id: String,
-    
+
     /// Output format
     #[arg(short, long, value_enum, default_value = "json")]
     pub format: OutputFormat,
 }
 
-pub async fn handle_draft_cmd(
-    client: &GmailClient,
-    cmd: DraftCommands,
-) -> Result<()> {
+pub async fn handle_draft_cmd(client: &GmailClient, cmd: DraftCommands) -> Result<()> {
     match cmd {
         DraftCommands::Create(args) => {
-            let draft = client.create_draft(&args.to, &args.subject, &args.body).await?;
+            let draft = client
+                .create_draft(&args.to, &args.subject, &args.body)
+                .await?;
             print_output(&draft, args.format)?;
         }
         DraftCommands::List(args) => {
@@ -111,7 +110,9 @@ pub async fn handle_draft_cmd(
             print_output(&draft, args.format)?;
         }
         DraftCommands::Update(args) => {
-            let draft = client.update_draft(&args.draft_id, &args.to, &args.subject, &args.body).await?;
+            let draft = client
+                .update_draft(&args.draft_id, &args.to, &args.subject, &args.body)
+                .await?;
             print_output(&draft, args.format)?;
         }
         DraftCommands::Delete(args) => {

@@ -1,9 +1,9 @@
 //! Watch (push notifications) CLI commands
 
-use crate::output::{print_output, OutputFormat};
-use gmail_core::GmailClient;
-use clap::{Args, Subcommand};
+use crate::output::{OutputFormat, print_output};
 use anyhow::Result;
+use clap::{Args, Subcommand};
+use gmail_core::GmailClient;
 
 #[derive(Subcommand, Debug)]
 pub enum WatchCommands {
@@ -17,11 +17,11 @@ pub enum WatchCommands {
 pub struct StartArgs {
     /// Pub/Sub topic name (e.g., "projects/my-project/topics/gmail")
     pub topic_name: String,
-    
+
     /// Label IDs to watch (comma-separated)
     #[arg(long, value_delimiter = ',')]
     pub label_ids: Option<Vec<String>>,
-    
+
     /// Output format
     #[arg(short, long, value_enum, default_value = "json")]
     pub format: OutputFormat,
@@ -34,10 +34,7 @@ pub struct StopArgs {
     pub format: OutputFormat,
 }
 
-pub async fn handle_watch_cmd(
-    client: &GmailClient,
-    cmd: WatchCommands,
-) -> Result<()> {
+pub async fn handle_watch_cmd(client: &GmailClient, cmd: WatchCommands) -> Result<()> {
     match cmd {
         WatchCommands::Start(args) => {
             let response = client.watch(&args.topic_name, args.label_ids).await?;

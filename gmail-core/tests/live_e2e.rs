@@ -65,17 +65,17 @@ fn select_message_with_attachment(messages: &[Message]) -> Option<(&Message, Sel
         if let Some(payload) = &message.payload {
             collect_attachments(payload, &mut found);
         }
-        found.into_iter().next().map(|attachment| (message, attachment))
+        found
+            .into_iter()
+            .next()
+            .map(|attachment| (message, attachment))
     })
 }
 
 fn format_transport_summary(info: &TransportInfo) -> String {
     format!(
         "negotiated={} http3_requested={} http3_effective={} fell_back={}",
-        info.negotiated_version,
-        info.http3_requested,
-        info.http3_effective,
-        info.fell_back,
+        info.negotiated_version, info.http3_requested, info.http3_effective, info.fell_back,
     )
 }
 
@@ -174,10 +174,14 @@ mod pure_logic_tests {
     fn finds_attachment_in_nested_parts() {
         let message = message_with_payload(
             "m1",
-            multipart(vec![leaf_part("text/plain"), attachment_part("att1", "a.pdf", 42)]),
+            multipart(vec![
+                leaf_part("text/plain"),
+                attachment_part("att1", "a.pdf", 42),
+            ]),
         );
 
-        let (_, selected) = select_message_with_attachment(&[message]).expect("attachment expected");
+        let (_, selected) =
+            select_message_with_attachment(&[message]).expect("attachment expected");
         assert_eq!(selected.attachment_id, "att1");
         assert_eq!(selected.filename, "a.pdf");
         assert_eq!(selected.size, 42);
@@ -263,7 +267,10 @@ async fn live_full_pipeline() {
         .unwrap_or_else(|err| panic!("read token file {}: {err}", token_file.display()));
     let storage: TokenStorage =
         serde_json::from_str(&raw).unwrap_or_else(|err| panic!("parse token file: {err}"));
-    let refreshable = storage.refresh_token.as_deref().is_some_and(|t| !t.is_empty());
+    let refreshable = storage
+        .refresh_token
+        .as_deref()
+        .is_some_and(|t| !t.is_empty());
     assert!(
         !storage.is_expired() || refreshable,
         "token at {} is expired without a refresh token; rerun the OAuth flow first",
@@ -293,8 +300,14 @@ async fn live_full_pipeline() {
         .search(INBOX_QUERY, SEARCH_CANDIDATES)
         .await
         .expect("search in:inbox");
-    assert!(!inbox_refs.is_empty(), "expected at least one inbox message");
-    println!("[search] {} result(s) for '{INBOX_QUERY}'", inbox_refs.len());
+    assert!(
+        !inbox_refs.is_empty(),
+        "expected at least one inbox message"
+    );
+    println!(
+        "[search] {} result(s) for '{INBOX_QUERY}'",
+        inbox_refs.len()
+    );
 
     // Attachment leg: prefer an inbox hit carrying an attachment; widen the
     // query once before declaring the leg skipped. Metadata vectors outlive
@@ -350,11 +363,17 @@ async fn live_full_pipeline() {
         Vec::new(),
         None,
     );
-    let imported = client.import_stream(stream, false).await.expect("import stream");
+    let imported = client
+        .import_stream(stream, false)
+        .await
+        .expect("import stream");
     assert!(!imported.id.is_empty(), "imported message must have an id");
     println!("[import] message {} subject={subject:?}", imported.id);
 
-    let trashed = client.trash_message(&imported.id).await.expect("trash imported message");
+    let trashed = client
+        .trash_message(&imported.id)
+        .await
+        .expect("trash imported message");
     assert!(
         trashed.label_ids.iter().any(|label| label == "TRASH"),
         "expected TRASH label after trashing, got {:?}",

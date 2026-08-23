@@ -41,7 +41,7 @@ fn detect_io_uring() -> bool {
                 }
             }
         }
-        
+
         // Try to create an io_uring instance
         use std::os::fd::AsRawFd;
         match io_uring::IoUring::new(1) {
@@ -49,7 +49,7 @@ fn detect_io_uring() -> bool {
             Err(_) => false,
         }
     }
-    
+
     #[cfg(not(target_os = "linux"))]
     {
         false

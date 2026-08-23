@@ -1,16 +1,16 @@
 //! gmail-cli - High-performance Gmail CLI
 
-use gmail_core::prelude::*;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use gmail_core::prelude::*;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod commands;
 mod output;
 
 use commands::{
-    auth, drafts, history, import, labels, message_ops, messages, profile, send, send_as, thread_ops, transport,
-    watch,
+    auth, drafts, history, import, labels, message_ops, messages, profile, send, send_as,
+    thread_ops, transport, watch,
 };
 use output::OutputFormat;
 
@@ -19,7 +19,7 @@ use output::OutputFormat;
 struct Cli {
     #[command(subcommand)]
     command: Commands,
-    
+
     #[arg(short, long, global = true, value_enum, default_value = "json")]
     format: OutputFormat,
 }
@@ -66,13 +66,13 @@ enum Commands {
 async fn main() -> Result<()> {
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(
-            std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into())
+            std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
         ))
         .with(tracing_subscriber::fmt::layer())
         .init();
 
     let cli = Cli::parse();
-    
+
     let config = ConfigLoader::load().await?;
     let auth = AuthConfigBuilder::new()
         .client_id(config.oauth.client_id.clone())
@@ -83,10 +83,7 @@ async fn main() -> Result<()> {
         .build()
         .await?;
 
-    let client = GmailClientBuilder::new(config)
-        .auth(auth)
-        .build()
-        .await?;
+    let client = GmailClientBuilder::new(config).auth(auth).build().await?;
 
     match cli.command {
         Commands::Auth(args) => commands::auth::handle_auth_cmd(&client, args).await?,
@@ -101,7 +98,9 @@ async fn main() -> Result<()> {
         Commands::Watch(cmd) => commands::watch::handle_watch_cmd(&client, cmd).await?,
         Commands::Import(args) => commands::import::handle_import_cmd(&client, args).await?,
         Commands::Msg(cmd) => commands::message_ops::handle_message_ops_cmd(&client, cmd).await?,
-        Commands::Transport(args) => commands::transport::handle_transport_cmd(&client, args).await?,
+        Commands::Transport(args) => {
+            commands::transport::handle_transport_cmd(&client, args).await?
+        }
     }
 
     Ok(())

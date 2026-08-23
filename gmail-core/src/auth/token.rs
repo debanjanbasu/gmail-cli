@@ -26,7 +26,7 @@ impl TokenStorage {
             .as_secs();
         now + 60 >= self.expires_at
     }
-    
+
     /// Get remaining lifetime in seconds
     pub fn remaining_secs(&self) -> u64 {
         let now = SystemTime::now()
