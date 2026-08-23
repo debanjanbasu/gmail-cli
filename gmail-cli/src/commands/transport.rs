@@ -66,7 +66,7 @@ mod tests {
     use super::*;
 
     fn features() -> RuntimeFeatures {
-        RuntimeFeatures { io_uring: false, http3: true, simd: true, num_cpus: 8 }
+        RuntimeFeatures { io_uring: false, http3: true, num_cpus: 8 }
     }
 
     fn perf() -> PerformanceConfig {

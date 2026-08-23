@@ -7,7 +7,6 @@ use std::sync::OnceLock;
 pub struct RuntimeFeatures {
     pub io_uring: bool,
     pub http3: bool,
-    pub simd: bool,
     pub num_cpus: usize,
 }
 
@@ -18,13 +17,11 @@ pub fn detect_runtime_features() -> RuntimeFeatures {
     *RUNTIME_FEATURES.get_or_init(|| {
         let io_uring = detect_io_uring();
         let http3 = cfg!(feature = "http3");
-        let simd = cfg!(feature = "simd");
         let num_cpus = num_cpus::get();
-        
+
         RuntimeFeatures {
             io_uring,
             http3,
-            simd,
             num_cpus,
         }
     })
@@ -72,11 +69,6 @@ pub fn has_io_uring() -> bool {
 /// Check if HTTP/3 is enabled
 pub fn has_http3() -> bool {
     detect_runtime_features().http3
-}
-
-/// Check if SIMD is enabled
-pub fn has_simd() -> bool {
-    detect_runtime_features().simd
 }
 
 /// Get number of CPUs

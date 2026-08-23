@@ -181,10 +181,9 @@ impl GmailClient {
         let semaphore = Arc::new(Semaphore::new(max_concurrent));
 
         info!(
-            "GmailClient initialized: http3={}, io_uring={}, simd={}, concurrency={}",
+            "GmailClient initialized: http3={}, io_uring={}, concurrency={}",
             runtime_features.http3,
             runtime_features.io_uring,
-            runtime_features.simd,
             max_concurrent
         );
 

@@ -5,7 +5,7 @@ edition = { workspace = true }
 license = { workspace = true }
 authors = { workspace = true }
 repository = { workspace = true }
-description = "High-performance Gmail CLI with HTTP/3 and zero-copy streaming"
+description = "High-performance Gmail CLI with verified HTTP/3 transport and streaming I/O"
 categories = ["command-line-utilities", "email"]
 
 [dependencies]

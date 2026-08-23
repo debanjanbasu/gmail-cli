@@ -1,9 +1,6 @@
 # Rust target directory
 /target/
 
-# Cargo lock file (optional - some projects commit it)
-Cargo.lock
-
 # IDE/editor files
 .vscode/
 .idea/
