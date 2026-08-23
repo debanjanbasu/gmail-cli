@@ -112,14 +112,15 @@ impl GmailClientBuilder {
             self.http_client.unwrap_or_else(|| build_http_client(&self.config.performance));
 
         if requested {
-            match probe(&http_client, &base_url, &auth).await {
+            match probe(&http_client, &base_url, &auth, reqwest::Version::HTTP_3).await {
                 Ok(v) => info.negotiated_version = v,
                 Err(e) => {
                     warn!("HTTP/3 probe failed ({e}); rebuilding without h3");
                     let mut perf_no_h3 = self.config.performance.clone();
                     perf_no_h3.enable_http3 = false;
                     http_client = build_http_client(&perf_no_h3);
-                    info.negotiated_version = probe(&http_client, &base_url, &auth).await?;
+                    info.negotiated_version =
+                        probe(&http_client, &base_url, &auth, reqwest::Version::HTTP_2).await?;
                     info.http3_effective = false;
                     info.fell_back = true;
                 }
@@ -295,6 +296,7 @@ impl GmailClient {
         // Add auth header
         let token = self.auth.get_access_token().await?;
         request = request.header(AUTHORIZATION, format!("Bearer {}", token));
+        request = apply_transport_version(request, self.transport_info.http3_effective);
 
         let mut last_error = None;
         
@@ -403,11 +405,36 @@ fn build_email(
     Ok(email)
 }
 
+/// Apply the transport-level HTTP version override for data-plane requests.
+///
+/// reqwest only routes an individual request over HTTP/3 when the request
+/// itself carries `version(HTTP_3)`; client-level `http3_prior_knowledge()`
+/// merely builds the QUIC connector. When h3 is effective, every API request
+/// must be explicitly versioned or it silently rides TCP.
+pub fn apply_transport_version(builder: reqwest::RequestBuilder, http3_effective: bool) -> reqwest::RequestBuilder {
+    if http3_effective {
+        builder.version(reqwest::Version::HTTP_3)
+    } else {
+        builder
+    }
+}
+
 /// Probe the negotiated HTTP version with a real authenticated request.
-async fn probe(client: &ReqwestClient, base: &Url, auth: &GmailAuth) -> Result<String> {
+async fn probe(
+    client: &ReqwestClient,
+    base: &Url,
+    auth: &GmailAuth,
+    version: reqwest::Version,
+) -> Result<String> {
     let token = auth.get_access_token().await?;
     let url = base.join("users/me/profile")?;
-    let resp = client.get(url).bearer_auth(&token).send().await?.error_for_status()?;
+    let resp = client
+        .get(url)
+        .bearer_auth(&token)
+        .version(version)
+        .send()
+        .await?
+        .error_for_status()?;
     Ok(format!("{:?}", resp.version()))
 }
 
