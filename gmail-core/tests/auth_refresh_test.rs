@@ -105,6 +105,53 @@ async fn refresh_persists_to_overridden_token_path_only() {
 }
 
 #[tokio::test]
+async fn refresh_response_without_refresh_token_preserves_stored_refresh_token() {
+    let server = MockServer::start().await;
+    // Google's refresh-grant response may omit refresh_token (it is only
+    // rotated sometimes). The stored refresh token must survive such a
+    // response so subsequent expiries can still refresh.
+    Mock::given(method("POST"))
+        .and(path("/token"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "access_token": "rotating-access-token",
+            "expires_in": 0, // immediately expired again
+            "token_type": "Bearer"
+        })))
+        .mount(&server)
+        .await;
+
+    let config = GmailConfig::default();
+    let dir = tempfile::tempdir().unwrap();
+    let auth = GmailAuth::with_token(config.oauth.clone(), expired_storage_with_refresh_token())
+        .await
+        .unwrap()
+        .with_token_endpoint(format!("{}/token", server.uri()))
+        .with_token_path(dir.path().join("token.json"));
+
+    let first = tokio::time::timeout(Duration::from_secs(5), auth.get_access_token())
+        .await
+        .expect("first refresh must complete promptly")
+        .unwrap();
+
+    // expires_in=0 makes the refreshed token immediately stale: this second
+    // call must refresh AGAIN using the preserved refresh token. With the
+    // bug, the omitted refresh_token overwrote storage with None and this
+    // call fails fast with an Auth error instead.
+    let second = tokio::time::timeout(Duration::from_secs(5), auth.get_access_token())
+        .await
+        .expect("second refresh must complete promptly, not hit a missing refresh token")
+        .unwrap();
+
+    assert_eq!(first, "rotating-access-token");
+    assert_eq!(second, "rotating-access-token");
+
+    // Exactly two refresh round-trips: the second one is only possible when
+    // the stored refresh token survived the first (refresh_token-less)
+    // response.
+    assert_eq!(server.received_requests().await.unwrap().len(), 2);
+}
+
+#[tokio::test]
 async fn successful_refresh_still_updates_the_access_token() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))

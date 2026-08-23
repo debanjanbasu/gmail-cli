@@ -196,7 +196,13 @@ impl GmailAuth {
 
         let expires_in = token_data["expires_in"].as_u64().unwrap_or(3600);
 
-        let refresh_token = token_data["refresh_token"].as_str().map(|s| s.to_string());
+        // Google only sometimes rotates the refresh token; when the
+        // response omits one, keep the stored value instead of clobbering
+        // it with None (which would brick all future refreshes).
+        let refresh_token = token_data["refresh_token"]
+            .as_str()
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| refresh_token.to_string());
 
         let expires_at = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -206,7 +212,7 @@ impl GmailAuth {
 
         Ok(TokenStorage {
             access_token,
-            refresh_token,
+            refresh_token: Some(refresh_token),
             expires_at,
             token_type: "Bearer".to_string(),
             scope: self.config.scopes.join(" "),
