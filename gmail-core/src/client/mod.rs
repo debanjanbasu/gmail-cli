@@ -367,10 +367,19 @@ impl GmailClient {
                     // Handle specific error codes
                     match status.as_u16() {
                         401 => {
-                            // Token might be expired, force refresh
-                            warn!("401 Unauthorized, forcing token refresh");
-                            self.auth.revoke().await.ok();
-                            continue; // Retry with new token
+                            // The bearer token above was fetched once before
+                            // this loop, so retrying re-sends the same stale
+                            // credential and can never succeed — and clearing
+                            // storage would drop callers into the implicit
+                            // OAuth flow mid-request. Fail fast instead.
+                            return Err(GmailError::Auth(
+                                format!(
+                                    "request rejected as unauthorized (401); \
+                                     your access token is expired or invalid — \
+                                     rerun `gmail auth login`"
+                                )
+                                .into(),
+                            ));
                         }
                         429 => {
                             // Rate limited - extract retry-after header
