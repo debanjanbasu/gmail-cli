@@ -80,6 +80,17 @@ impl GmailAuth {
         self
     }
 
+    /// Override the on-disk token persistence path (test injection hook).
+    ///
+    /// Without this, any code path that calls [`Self::save_token`] or
+    /// [`Self::revoke`] writes/deletes the real user credential at the
+    /// platform cache dir; tests must always redirect it into a tempdir.
+    #[doc(hidden)]
+    pub fn with_token_path(mut self, path: PathBuf) -> Self {
+        self.token_path = path;
+        self
+    }
+
     /// Get valid access token, refreshing if necessary
     pub async fn get_access_token(&self) -> Result<String> {
         let mut storage_guard = self.token_storage.write().await;

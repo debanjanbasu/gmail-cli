@@ -67,6 +67,44 @@ async fn rejected_refresh_token_returns_auth_error_without_oauth_flow() {
 }
 
 #[tokio::test]
+async fn refresh_persists_to_overridden_token_path_only() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/token"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "access_token": "fresh-access-token",
+            "expires_in": 3600,
+            "token_type": "Bearer"
+        })))
+        .mount(&server)
+        .await;
+
+    let dir = tempfile::tempdir().unwrap();
+    let token_path = dir.path().join("nested").join("token.json");
+
+    let config = GmailConfig::default();
+    let auth = GmailAuth::with_token(config.oauth.clone(), expired_storage_with_refresh_token())
+        .await
+        .unwrap()
+        .with_token_endpoint(format!("{}/token", server.uri()))
+        .with_token_path(token_path.clone());
+
+    let token = tokio::time::timeout(Duration::from_secs(5), auth.get_access_token())
+        .await
+        .expect("refresh must complete promptly")
+        .unwrap();
+    assert_eq!(token, "fresh-access-token");
+
+    // The refreshed credential must land at the overridden path — never at
+    // the user's real cache-dir token.json.
+    let persisted = std::fs::read_to_string(&token_path).unwrap();
+    assert!(
+        persisted.contains("fresh-access-token"),
+        "refreshed token not persisted to overridden path: {persisted}"
+    );
+}
+
+#[tokio::test]
 async fn successful_refresh_still_updates_the_access_token() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
@@ -80,20 +118,18 @@ async fn successful_refresh_still_updates_the_access_token() {
         .await;
 
     let config = GmailConfig::default();
+    let dir = tempfile::tempdir().unwrap();
     let auth = GmailAuth::with_token(config.oauth.clone(), expired_storage_with_refresh_token())
         .await
         .unwrap()
-        .with_token_endpoint(format!("{}/token", server.uri()));
+        .with_token_endpoint(format!("{}/token", server.uri()))
+        // Never persist the fake refreshed credential over the real
+        // user token at the platform cache dir.
+        .with_token_path(dir.path().join("token.json"));
 
     let token = tokio::time::timeout(Duration::from_secs(5), auth.get_access_token())
         .await
         .expect("refresh must complete promptly")
         .unwrap();
     assert_eq!(token, "fresh-access-token");
-
-    // The happy path persists the refreshed token to the cache dir; clean up
-    // so the test never leaves a fake credential on the machine.
-    if let Some(cache) = dirs::cache_dir() {
-        let _ = std::fs::remove_file(cache.join("gmail-opencode").join("token.json"));
-    }
 }
