@@ -18,12 +18,15 @@ mod token;
 
 pub use token::TokenStorage;
 
+const GOOGLE_TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
+
 /// OAuth2 client with PKCE support
 pub struct GmailAuth {
     config: OAuthConfig,
     http_client: HttpClient,
     token_storage: Arc<RwLock<Option<TokenStorage>>>,
     token_path: PathBuf,
+    token_endpoint: String,
 }
 
 impl GmailAuth {
@@ -55,6 +58,7 @@ impl GmailAuth {
             http_client,
             token_storage: Arc::new(RwLock::new(token_storage)),
             token_path,
+            token_endpoint: GOOGLE_TOKEN_URL.to_string(),
         })
     }
 
@@ -69,35 +73,54 @@ impl GmailAuth {
         Ok(this)
     }
 
+    /// Override the OAuth2 token endpoint URL (test injection hook).
+    #[doc(hidden)]
+    pub fn with_token_endpoint(mut self, url: impl Into<String>) -> Self {
+        self.token_endpoint = url.into();
+        self
+    }
+
     /// Get valid access token, refreshing if necessary
     pub async fn get_access_token(&self) -> Result<String> {
         let mut storage_guard = self.token_storage.write().await;
-        
+
         if let Some(storage) = storage_guard.as_ref() {
             if !storage.is_expired() {
                 debug!("Using cached access token ({}s remaining)", storage.remaining_secs());
                 return Ok(storage.access_token.clone());
             }
-            
-            // Try to refresh
-            if let Some(refresh_token) = &storage.refresh_token {
-                info!("Refreshing expired access token");
-                match self.refresh_token(refresh_token).await {
-                    Ok(new_storage) => {
-                        *storage_guard = Some(new_storage.clone());
-                        self.save_token(&new_storage).await?;
-                        return Ok(new_storage.access_token);
-                    }
-                    Err(e) => {
-                        warn!("Token refresh failed: {}", e);
-                        // Clear invalid token
-                        *storage_guard = None;
-                    }
+
+            // A stored credential that cannot produce a fresh token must never
+            // trigger the implicit browser flow: `run_oauth_flow` binds port
+            // 3434 mid-API-call and wedges callers for the callback timeout.
+            let Some(refresh_token) = storage.refresh_token.clone() else {
+                return Err(GmailError::Auth(
+                    anyhow!(
+                        "stored token is expired and has no refresh token; rerun `gmail auth login`"
+                    )
+                    .into(),
+                ));
+            };
+
+            info!("Refreshing expired access token");
+            match self.refresh_token(&refresh_token).await {
+                Ok(new_storage) => {
+                    *storage_guard = Some(new_storage.clone());
+                    self.save_token(&new_storage).await?;
+                    return Ok(new_storage.access_token);
+                }
+                Err(e) => {
+                    warn!("Token refresh failed: {}", e);
+                    // Keep the expired storage in place: clearing it would
+                    // route subsequent callers into the implicit OAuth flow.
+                    return Err(GmailError::Auth(
+                        anyhow!("{e}; rerun `gmail auth login`").into(),
+                    ));
                 }
             }
         }
 
-        // Need to run full OAuth flow
+        // Fresh install / explicit login path: no stored token at all.
         info!("No valid token, starting OAuth flow");
         let storage = self.run_oauth_flow().await?;
         *storage_guard = Some(storage.clone());
@@ -109,7 +132,7 @@ impl GmailAuth {
     async fn refresh_token(&self, refresh_token: &str) -> Result<TokenStorage> {
         let response = self
             .http_client
-            .post("https://oauth2.googleapis.com/token")
+            .post(self.token_endpoint.as_str())
             .form(&[
                 ("client_id", self.config.client_id.as_str()),
                 ("client_secret", self.config.client_secret.as_str()),
@@ -120,8 +143,32 @@ impl GmailAuth {
             .await
             .map_err(GmailError::Http)?;
 
-        let token_data: serde_json::Value = response.json().await.map_err(GmailError::Http)?;
-        
+        let status = response.status();
+        let body_text = response.text().await.map_err(GmailError::Http)?;
+
+        if !status.is_success() {
+            // Google reports rejection reasons (e.g. invalid_grant) in the
+            // response body; surface them instead of a generic parse failure.
+            let body: serde_json::Value = serde_json::from_str(&body_text)
+                .map_err(|e| GmailError::Auth(anyhow!("token endpoint returned {}: unparseable body ({e})", status).into()))?;
+            let reason = body["error"]
+                .as_str()
+                .or_else(|| body["error_description"].as_str())
+                .unwrap_or("unknown error");
+            let description = body["error_description"].as_str().unwrap_or("");
+            let detail = if description.is_empty() || description == reason {
+                reason.to_string()
+            } else {
+                format!("{reason}: {description}")
+            };
+            return Err(GmailError::Auth(
+                anyhow!("token endpoint returned {}: {}", status, detail).into(),
+            ));
+        }
+
+        let token_data: serde_json::Value = serde_json::from_str(&body_text)
+            .map_err(|e| GmailError::Auth(anyhow!("token endpoint returned unparseable success body ({e})").into()))?;
+
         let access_token = token_data["access_token"]
             .as_str()
             .ok_or_else(|| GmailError::Auth(anyhow!("No access token in response").into()))?
