@@ -27,9 +27,14 @@ pub fn detect_runtime_features() -> RuntimeFeatures {
     })
 }
 
-/// Check if io_uring is available at runtime
+/// Check if io_uring is available at runtime.
+///
+/// Only meaningful when the `io_uring` feature is compiled in on Linux;
+/// every other configuration reports `false` so callers (and
+/// `gmail transport`) never see an acceleration claim the binary cannot
+/// actually use.
 fn detect_io_uring() -> bool {
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", feature = "io_uring"))]
     {
         // Check kernel version (io_uring requires 5.1+)
         if let Ok(release) = std::fs::read_to_string("/proc/sys/kernel/osrelease") {
@@ -43,14 +48,13 @@ fn detect_io_uring() -> bool {
         }
 
         // Try to create an io_uring instance
-        use std::os::fd::AsRawFd;
         match io_uring::IoUring::new(1) {
             Ok(_) => true,
             Err(_) => false,
         }
     }
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(any(not(target_os = "linux"), not(feature = "io_uring")))]
     {
         false
     }
@@ -93,5 +97,27 @@ pub fn optimal_pool_size() -> usize {
         features.num_cpus * 8
     } else {
         features.num_cpus * 4
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Regression guard: io_uring must never be reported as available unless
+    /// the `io_uring` feature is compiled in on Linux. On Linux default
+    /// builds (feature off) the old ungated kernel probe could report `true`
+    /// while fs_io silently used the tokio fallback — a false acceleration
+    /// claim surfaced by `gmail transport`.
+    #[test]
+    fn io_uring_report_matches_compile_time_feature_gate() {
+        assert_eq!(
+            has_io_uring(),
+            cfg!(all(target_os = "linux", feature = "io_uring"))
+        );
+        assert_eq!(
+            detect_runtime_features().io_uring,
+            cfg!(all(target_os = "linux", feature = "io_uring"))
+        );
     }
 }

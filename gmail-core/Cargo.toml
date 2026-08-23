@@ -39,9 +39,10 @@ urlencoding = { workspace = true }
 open = "5.4"
 num_cpus = "1.17"
 
-# Platform-specific: io_uring only on Linux
+# Platform-specific: io_uring only on Linux, only behind the feature gate
 [target.'cfg(target_os = "linux")'.dependencies]
-tokio-uring = { workspace = true }
+tokio-uring = { workspace = true, optional = true }
+io-uring = { workspace = true, optional = true }
 
 [dev-dependencies]
 mockito = { workspace = true }
@@ -55,4 +56,4 @@ default = ["http3", "zstd", "brotli"]
 http3 = []
 zstd = []
 brotli = []
-io_uring = []
+io_uring = ["dep:tokio-uring", "dep:io-uring"]

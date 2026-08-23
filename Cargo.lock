@@ -810,6 +810,7 @@ dependencies = [
  "dirs",
  "figment",
  "futures",
+ "io-uring",
  "mockito",
  "num_cpus",
  "open",
