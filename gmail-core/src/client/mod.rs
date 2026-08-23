@@ -23,11 +23,49 @@ mod settings;
 mod threads;
 mod watch;
 
+const DEFAULT_BASE_URL: &str = "https://gmail.googleapis.com/gmail/v1/";
+
+/// Transport protocol selection resolved from config and compile-time features.
+///
+/// Prior-knowledge modes are mutually exclusive: reqwest rejects a client
+/// configured with both HTTP/3 and HTTP/2 prior knowledge.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum TransportMode {
+    Http3PriorKnowledge,
+    Http2PriorKnowledge,
+    AlpnDefault,
+}
+
+/// Resolve which transport mode the HTTP client should use.
+///
+/// HTTP/3 wins when requested and the `http3` feature is compiled in;
+/// otherwise HTTP/2 prior knowledge applies when enabled; otherwise ALPN
+/// negotiation defaults apply.
+pub fn resolve_transport_mode(enable_http3: bool, http3_feature: bool, enable_http2: bool) -> TransportMode {
+    if enable_http3 && http3_feature {
+        TransportMode::Http3PriorKnowledge
+    } else if enable_http2 {
+        TransportMode::Http2PriorKnowledge
+    } else {
+        TransportMode::AlpnDefault
+    }
+}
+
+/// Observed transport negotiation details captured during client construction.
+#[derive(Debug, Clone, Default)]
+pub struct TransportInfo {
+    pub negotiated_version: String,
+    pub http3_requested: bool,
+    pub http3_effective: bool,
+    pub fell_back: bool,
+}
+
 /// Gmail API client builder
 pub struct GmailClientBuilder {
     config: GmailConfig,
     auth: Option<GmailAuth>,
     http_client: Option<ReqwestClient>,
+    base_url: Option<Url>,
 }
 
 impl GmailClientBuilder {
@@ -36,6 +74,7 @@ impl GmailClientBuilder {
             config,
             auth: None,
             http_client: None,
+            base_url: None,
         }
     }
 
@@ -49,11 +88,47 @@ impl GmailClientBuilder {
         self
     }
 
+    /// Override the Gmail API base URL (primarily for test injection).
+    pub fn base_url(mut self, url: Url) -> Self {
+        self.base_url = Some(url);
+        self
+    }
+
     pub async fn build(self) -> Result<GmailClient> {
         let auth = self.auth.ok_or_else(|| GmailError::Config("Auth is required".into()))?;
-        let http_client = self.http_client.unwrap_or_else(|| build_http_client(&self.config.performance));
-        
-        GmailClient::new(auth, http_client, self.config).await
+        let base_url = match self.base_url {
+            Some(url) => url,
+            None => Url::parse(DEFAULT_BASE_URL)
+                .map_err(|e| GmailError::Config(format!("Invalid base URL: {}", e)))?,
+        };
+
+        let requested = self.config.performance.enable_http3 && cfg!(feature = "http3");
+        let mut info = TransportInfo {
+            http3_requested: requested,
+            http3_effective: requested,
+            ..Default::default()
+        };
+        let mut http_client =
+            self.http_client.unwrap_or_else(|| build_http_client(&self.config.performance));
+
+        if requested {
+            match probe(&http_client, &base_url, &auth).await {
+                Ok(v) => info.negotiated_version = v,
+                Err(e) => {
+                    warn!("HTTP/3 probe failed ({e}); rebuilding without h3");
+                    let mut perf_no_h3 = self.config.performance.clone();
+                    perf_no_h3.enable_http3 = false;
+                    http_client = build_http_client(&perf_no_h3);
+                    info.negotiated_version = probe(&http_client, &base_url, &auth).await?;
+                    info.http3_effective = false;
+                    info.fell_back = true;
+                }
+            }
+        } else {
+            info.negotiated_version = "not-probed".into();
+        }
+
+        GmailClient::new(auth, http_client, self.config, base_url, info).await
     }
 }
 
@@ -65,6 +140,7 @@ pub struct GmailClient {
     config: GmailConfig,
     semaphore: Arc<Semaphore>,
     base_url: Url,
+    transport_info: TransportInfo,
     #[allow(dead_code)]
     runtime_features: RuntimeFeatures,
 }
@@ -75,14 +151,13 @@ impl GmailClient {
         auth: GmailAuth,
         http_client: ReqwestClient,
         config: GmailConfig,
+        base_url: Url,
+        transport_info: TransportInfo,
     ) -> Result<Self> {
         let runtime_features = detect_runtime_features();
-        
+
         let max_concurrent = config.performance.max_concurrent;
         let semaphore = Arc::new(Semaphore::new(max_concurrent));
-
-        let base_url = Url::parse("https://gmail.googleapis.com/gmail/v1/")
-            .map_err(|e| GmailError::Config(format!("Invalid base URL: {}", e)))?;
 
         info!(
             "GmailClient initialized: http3={}, io_uring={}, simd={}, concurrency={}",
@@ -98,13 +173,19 @@ impl GmailClient {
             config,
             semaphore,
             base_url,
+            transport_info,
             runtime_features,
         })
     }
 
-/// Get access token
+    /// Get access token
     pub async fn access_token(&self) -> Result<String> {
         self.auth.get_access_token().await
+    }
+
+    /// Transport negotiation details observed during client construction.
+    pub fn transport_info(&self) -> &TransportInfo {
+        &self.transport_info
     }
 
     /// Force re-authentication by invalidating token
@@ -322,6 +403,14 @@ fn build_email(
     Ok(email)
 }
 
+/// Probe the negotiated HTTP version with a real authenticated request.
+async fn probe(client: &ReqwestClient, base: &Url, auth: &GmailAuth) -> Result<String> {
+    let token = auth.get_access_token().await?;
+    let url = base.join("users/me/profile")?;
+    let resp = client.get(url).bearer_auth(&token).send().await?.error_for_status()?;
+    Ok(format!("{:?}", resp.version()))
+}
+
 /// Build HTTP client with all performance features
 fn build_http_client(perf: &PerformanceConfig) -> ReqwestClient {
     let mut builder = ReqwestClient::builder()
@@ -335,15 +424,16 @@ fn build_http_client(perf: &PerformanceConfig) -> ReqwestClient {
         .brotli(perf.enable_brotli)
         .zstd(perf.enable_zstd);
 
-    // HTTP/3
-    #[cfg(feature = "http3")]
-    if perf.enable_http3 {
-        builder = builder.http3_prior_knowledge();
-    }
-
-    // HTTP/2
-    if perf.enable_http2 {
-        builder = builder.http2_prior_knowledge();
+    // Transport protocol: prior-knowledge modes are mutually exclusive.
+    match resolve_transport_mode(perf.enable_http3, cfg!(feature = "http3"), perf.enable_http2) {
+        TransportMode::Http3PriorKnowledge => {
+            #[cfg(feature = "http3")]
+            { builder = builder.http3_prior_knowledge(); }
+        }
+        TransportMode::Http2PriorKnowledge => {
+            builder = builder.http2_prior_knowledge();
+        }
+        TransportMode::AlpnDefault => {}
     }
 
     // Default headers

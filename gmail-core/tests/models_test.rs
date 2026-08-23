@@ -1,7 +1,6 @@
 //! Tests for Gmail core models
 
 use gmail_core::models::*;
-use serde_json;
 
 #[test]
 fn test_message_payload_helpers() {
