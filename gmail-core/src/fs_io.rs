@@ -48,8 +48,21 @@ async fn ring_write(path: PathBuf, data: Bytes) -> Result<()> {
                 std::fs::create_dir_all(parent)?;
             }
             let file = tokio_uring::fs::File::create(&path).await?;
-            let (res, _buf) = file.write_at(data, 0).await;
-            res?;
+            // io_uring writes may complete partially; keep issuing writes for
+            // the remainder until the whole buffer is durable.
+            let mut pending = data;
+            let mut offset = 0u64;
+            while !pending.is_empty() {
+                let (res, buf) = file.write_at(pending, offset).await;
+                let n = res?;
+                if n == 0 {
+                    return Err(GmailError::Internal(format!(
+                        "io_uring write made no progress at offset {offset}"
+                    )));
+                }
+                offset += n as u64;
+                pending = buf.slice(n..);
+            }
             file.sync_all().await?;
             Ok(())
         })
@@ -68,6 +81,14 @@ async fn ring_read(path: PathBuf) -> Result<Bytes> {
             buf.put_bytes(0u8, len);
             let (res, buf) = file.read_at(buf.freeze(), 0).await;
             let n = res?;
+            // The file may have changed between stat and read; silently
+            // returning truncated bytes would corrupt callers. Fail loudly
+            // so the caller can fall back to a consistent read.
+            if n != len {
+                return Err(GmailError::Internal(format!(
+                    "io_uring short read on {path:?}: got {n} of {len} bytes"
+                )));
+            }
             Ok::<_, GmailError>(buf.slice(..n))
         })
     })
