@@ -23,7 +23,12 @@ mod settings;
 mod threads;
 mod watch;
 
+mod streaming;
+
+pub use streaming::*;
+
 const DEFAULT_BASE_URL: &str = "https://gmail.googleapis.com/gmail/v1/";
+const DEFAULT_UPLOAD_BASE_URL: &str = "https://gmail.googleapis.com/upload/gmail/v1/";
 
 /// Transport protocol selection resolved from config and compile-time features.
 ///
@@ -66,6 +71,7 @@ pub struct GmailClientBuilder {
     auth: Option<GmailAuth>,
     http_client: Option<ReqwestClient>,
     base_url: Option<Url>,
+    upload_base_url: Option<Url>,
 }
 
 impl GmailClientBuilder {
@@ -75,6 +81,7 @@ impl GmailClientBuilder {
             auth: None,
             http_client: None,
             base_url: None,
+            upload_base_url: None,
         }
     }
 
@@ -94,12 +101,23 @@ impl GmailClientBuilder {
         self
     }
 
+    /// Override the Gmail media-upload base URL (primarily for test injection).
+    pub fn upload_base_url(mut self, url: Url) -> Self {
+        self.upload_base_url = Some(url);
+        self
+    }
+
     pub async fn build(self) -> Result<GmailClient> {
         let auth = self.auth.ok_or_else(|| GmailError::Config("Auth is required".into()))?;
         let base_url = match self.base_url {
             Some(url) => url,
             None => Url::parse(DEFAULT_BASE_URL)
                 .map_err(|e| GmailError::Config(format!("Invalid base URL: {}", e)))?,
+        };
+        let upload_base_url = match self.upload_base_url {
+            Some(url) => url,
+            None => Url::parse(DEFAULT_UPLOAD_BASE_URL)
+                .map_err(|e| GmailError::Config(format!("Invalid upload base URL: {}", e)))?,
         };
 
         let requested = self.config.performance.enable_http3 && cfg!(feature = "http3");
@@ -129,7 +147,7 @@ impl GmailClientBuilder {
             info.negotiated_version = "not-probed".into();
         }
 
-        GmailClient::new(auth, http_client, self.config, base_url, info).await
+        GmailClient::new(auth, http_client, self.config, base_url, upload_base_url, info).await
     }
 }
 
@@ -141,6 +159,7 @@ pub struct GmailClient {
     config: GmailConfig,
     semaphore: Arc<Semaphore>,
     base_url: Url,
+    upload_base_url: Url,
     transport_info: TransportInfo,
     #[allow(dead_code)]
     runtime_features: RuntimeFeatures,
@@ -153,6 +172,7 @@ impl GmailClient {
         http_client: ReqwestClient,
         config: GmailConfig,
         base_url: Url,
+        upload_base_url: Url,
         transport_info: TransportInfo,
     ) -> Result<Self> {
         let runtime_features = detect_runtime_features();
@@ -174,6 +194,7 @@ impl GmailClient {
             config,
             semaphore,
             base_url,
+            upload_base_url,
             transport_info,
             runtime_features,
         })
@@ -298,14 +319,24 @@ impl GmailClient {
         request = request.header(AUTHORIZATION, format!("Bearer {}", token));
         request = apply_transport_version(request, self.transport_info.http3_effective);
 
+        let mut pending = Some(request);
         let mut last_error = None;
-        
+
         for attempt in 0..=self.config.performance.retry_attempts {
-            let response = request
-                .try_clone()
-                .ok_or_else(|| GmailError::Internal("Failed to clone request".into()))?
-                .send()
-                .await;
+            // Streaming bodies are non-replayable: try_clone() yields None and
+            // only one send attempt is possible, so the builder is consumed.
+            let to_send = match pending.take() {
+                None => break,
+                Some(builder) => match builder.try_clone() {
+                    Some(replayable) => {
+                        pending = Some(builder);
+                        replayable
+                    }
+                    None => builder,
+                },
+            };
+
+            let response = to_send.send().await;
 
             match response {
                 Ok(resp) => {

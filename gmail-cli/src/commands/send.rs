@@ -1,7 +1,8 @@
 //! Send email CLI commands
 
 use crate::output::{print_output, OutputFormat};
-use gmail_core::{GmailClient, AttachmentData};
+use gmail_core::client::{StreamAttachment, mime_message_stream};
+use gmail_core::GmailClient;
 use clap::{Args, Subcommand};
 use anyhow::Result;
 use std::path::Path;
@@ -90,38 +91,43 @@ pub async fn handle_send_cmd(
             print_output(&msg, args.format)?;
         }
         SendCommands::SendAttach(args) => {
-            let mut attachments = Vec::new();
-            
-            for path_str in &args.attachments {
-                let path = Path::new(path_str);
-                let content = tokio::fs::read(path).await?;
-                let filename = path
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("attachment")
-                    .to_string();
-                
-                // Determine MIME type from extension
-                let mime_type = mime_guess::from_path(path)
-                    .first()
-                    .map(|m| m.to_string())
-                    .unwrap_or_else(|| "application/octet-stream".to_string());
-                
-                attachments.push(AttachmentData {
-                    filename,
-                    content,
-                    mime_type,
-                });
-            }
-            
-            let msg = client.send_with_attachments(
+            let attachments: Vec<StreamAttachment> = args
+                .attachments
+                .iter()
+                .map(|path_str| {
+                    let path = Path::new(path_str);
+                    let filename = path
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("attachment")
+                        .to_string();
+
+                    // Determine MIME type from extension
+                    let mime_type = mime_guess::from_path(path)
+                        .first()
+                        .map(|m| m.to_string())
+                        .unwrap_or_else(|| "application/octet-stream".to_string());
+
+                    StreamAttachment {
+                        path: path.to_path_buf(),
+                        filename,
+                        mime_type,
+                    }
+                })
+                .collect();
+
+            let stream = mime_message_stream(
                 &args.to,
                 &args.subject,
                 &args.body,
                 attachments,
                 args.thread_id.as_deref(),
-            ).await?;
-            
+            );
+
+            let msg = client
+                .send_mime_stream(stream, args.thread_id.as_deref())
+                .await?;
+
             print_output(&msg, args.format)?;
         }
     }
