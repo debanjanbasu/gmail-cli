@@ -13,6 +13,7 @@ keywords = ["gmail", "api", "http3", "streaming"]
 # Workspace dependencies - all required
 reqwest = { workspace = true, features = ["http3", "zstd", "brotli", "rustls", "json", "form", "query"] }
 tokio = { workspace = true }
+bytes = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 url = { workspace = true }
@@ -54,3 +55,4 @@ http3 = []
 zstd = []
 brotli = []
 simd = []
+io_uring = []

@@ -55,6 +55,7 @@ tracing-subscriber = { version = "0.3.23", features = ["env-filter", "json", "fm
 
 # ── Performance ────────────────────────────────────────────────────────────
 futures = "0.3.34"
+bytes = "1.10"
 
 # ── NAPI Bindings ──────────────────────────────────────────────────────────
 napi = { version = "3.12.1", features = ["napi8"] }

@@ -19,6 +19,7 @@ pub mod client;
 pub mod config;
 pub mod config_loader;
 pub mod error;
+pub mod fs_io;
 pub mod models;
 pub mod runtime;
 
