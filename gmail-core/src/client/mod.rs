@@ -373,12 +373,10 @@ impl GmailClient {
                             // storage would drop callers into the implicit
                             // OAuth flow mid-request. Fail fast instead.
                             return Err(GmailError::Auth(
-                                format!(
-                                    "request rejected as unauthorized (401); \
-                                     your access token is expired or invalid — \
-                                     rerun `gmail auth login`"
-                                )
-                                .into(),
+                                "request rejected as unauthorized (401); \
+                                 your access token is expired or invalid — \
+                                 rerun `gmail auth login`"
+                                    .into(),
                             ));
                         }
                         429 => {
