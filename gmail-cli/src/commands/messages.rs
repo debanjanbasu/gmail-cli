@@ -103,21 +103,31 @@ pub async fn handle_message_cmd(
                 MessageFormat::Raw => Some("raw"),
             };
             if matches!(args.format, MessageFormat::Raw) {
-                let raw = client.get_message_raw(&args.message_id).await?;
-                println!("{}", raw);
+                let raw = client.get_message_raw_bytes(&args.message_id).await?;
+                println!("{}", String::from_utf8_lossy(&raw));
             } else {
                 let msg = client.get_message(&args.message_id, fmt).await?;
                 print_output(&msg, args.output)?;
             }
         }
         MessageCommands::Attachment(args) => {
-            let attachment = client.get_attachment(&args.message_id, &args.attachment_id).await?;
             if let Some(path) = args.output {
-                let data = base64::engine::general_purpose::STANDARD.decode(&attachment.data)?;
-                tokio::fs::write(&path, data).await?;
-                println!("Attachment saved to {}", path);
+                let n = client
+                    .download_attachment_to(
+                        &args.message_id,
+                        &args.attachment_id,
+                        std::path::Path::new(&path),
+                    )
+                    .await?;
+                println!("Saved {n} bytes to {path}");
             } else {
-                println!("{}", attachment.data);
+                let data = client
+                    .get_attachment_bytes(&args.message_id, &args.attachment_id)
+                    .await?;
+                println!(
+                    "{}",
+                    base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&data)
+                );
             }
         }
     }

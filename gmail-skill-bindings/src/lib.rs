@@ -254,10 +254,10 @@ impl Gmail {
     pub async fn get_message_raw(&self, message_id: String) -> napi::Result<String> {
         let raw = self
             .client
-            .get_message_raw(&message_id)
+            .get_message_raw_bytes(&message_id)
             .await
             .map_err(|e| napi::Error::from_reason(e.to_string()))?;
-        Ok(raw)
+        Ok(String::from_utf8_lossy(&raw).into_owned())
     }
 
     /// Get an attachment belonging to a message.

@@ -1,6 +1,7 @@
 //! Message operations
 
 use base64::Engine;
+use bytes::Bytes;
 
 use crate::error::{GmailError, Result};
 use crate::models::*;
@@ -31,15 +32,27 @@ impl super::GmailClient {
         self.get_message(message_id, Some("metadata")).await
     }
 
-    /// Get message raw (RFC 822)
-    pub async fn get_message_raw(&self, message_id: &str) -> Result<String> {
+    /// Get message raw (RFC 822) bytes with a single output allocation
+    pub async fn get_message_raw_bytes(&self, message_id: &str) -> Result<Bytes> {
         let response = self.execute_with_retry(
             self.http_client
                 .get(self.api_url(&format!("users/me/messages/{}", message_id))?)
                 .query(&[("format", "raw")])
         ).await?;
-        let message: Message = response.json().await?;
-        message.raw.ok_or_else(|| GmailError::NotFound("Raw message not available".into()))
+
+        let json: serde_json::Value = response.json().await?;
+        let data = json
+            .get("raw")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| GmailError::NotFound("Raw message not available".into()))?;
+
+        let estimated = data.len() * 3 / 4 + 3;
+        let mut buf = bytes::BytesMut::zeroed(estimated);
+        let written = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .decode_slice(data, &mut buf)
+            .map_err(|e| GmailError::Internal(format!("raw message base64 decode: {e}")))?;
+        buf.truncate(written);
+        Ok(buf.freeze())
     }
 
     /// Get attachment
@@ -49,6 +62,47 @@ impl super::GmailClient {
                 .get(self.api_url(&format!("users/me/messages/{}/attachments/{}", message_id, attachment_id))?)
         ).await?;
         Ok(response.json().await?)
+    }
+
+    /// Get raw attachment bytes with a single output allocation.
+    pub async fn get_attachment_bytes(
+        &self,
+        message_id: &str,
+        attachment_id: &str,
+    ) -> Result<Bytes> {
+        let response = self.execute_with_retry(
+            self.http_client.get(self.api_url(&format!(
+                "users/me/messages/{}/attachments/{}",
+                message_id, attachment_id
+            ))?),
+        ).await?;
+
+        let json: serde_json::Value = response.json().await?;
+        let data = json
+            .get("data")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| GmailError::NotFound("Attachment data missing".into()))?;
+
+        let estimated = data.len() * 3 / 4 + 3;
+        let mut buf = bytes::BytesMut::zeroed(estimated);
+        let written = base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .decode_slice(data, &mut buf)
+            .map_err(|e| GmailError::Internal(format!("attachment base64 decode: {e}")))?;
+        buf.truncate(written);
+        Ok(buf.freeze())
+    }
+
+    /// Stream an attachment straight to disk via fs_io (io_uring on Linux).
+    pub async fn download_attachment_to(
+        &self,
+        message_id: &str,
+        attachment_id: &str,
+        path: &std::path::Path,
+    ) -> Result<u64> {
+        let bytes = self.get_attachment_bytes(message_id, attachment_id).await?;
+        let len = bytes.len() as u64;
+        crate::fs_io::write_file(path, bytes).await?;
+        Ok(len)
     }
 
     // ═══════════════════════════════════════════════════════════════════

@@ -58,6 +58,17 @@ impl GmailAuth {
         })
     }
 
+    /// Construct an auth handle pre-loaded with an in-memory token.
+    ///
+    /// Test hook (`#[doc(hidden)]`): skips the OAuth flow entirely; as long
+    /// as the injected token stays valid nothing touches the on-disk cache.
+    #[doc(hidden)]
+    pub async fn with_token(config: OAuthConfig, storage: TokenStorage) -> Result<Self> {
+        let this = Self::new(config).await?;
+        *this.token_storage.write().await = Some(storage);
+        Ok(this)
+    }
+
     /// Get valid access token, refreshing if necessary
     pub async fn get_access_token(&self) -> Result<String> {
         let mut storage_guard = self.token_storage.write().await;
