@@ -4,6 +4,9 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::Duration;
 
+#[cfg(test)]
+use figment::{providers::{Format, Toml}, Figment};
+
 /// Main configuration for Gmail client
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
@@ -25,19 +28,25 @@ pub struct GmailConfig {
 }
 
 /// OAuth2 configuration
+///
+/// Accepts both kebab-case (Rust-native) and snake_case (TypeScript-era
+/// `config.toml` migration) key spellings.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct OAuthConfig {
+    #[serde(alias = "client_id")]
     pub client_id: String,
+
+    #[serde(alias = "client_secret")]
     pub client_secret: String,
 
-    #[serde(default = "default_redirect_uri")]
+    #[serde(default = "default_redirect_uri", alias = "redirect_uri")]
     pub redirect_uri: String,
 
     #[serde(default = "default_scopes")]
     pub scopes: Vec<String>,
 
-    #[serde(default)]
+    #[serde(default, alias = "use_pkce")]
     pub use_pkce: bool,
 }
 
@@ -322,5 +331,44 @@ impl PerformanceConfig {
 
     pub fn http2_keepalive_interval(&self) -> Duration {
         Duration::from_secs(self.http2_keepalive_interval_secs)
+    }
+}
+
+#[cfg(test)]
+mod config_compat_tests {
+    use super::*;
+
+    #[test]
+    fn oauth_accepts_snake_case_keys_from_ts_era_configs() {
+        let toml = r#"
+[oauth]
+client_id = "id-123"
+client_secret = "secret-456"
+redirect_uri = "http://localhost:9999/cb"
+use_pkce = true
+"#;
+        let figment = Figment::new().merge(Toml::string(toml));
+        // Parse failure falls back to defaults; the asserts below then fail.
+        let config = figment
+            .extract::<GmailConfig>()
+            .unwrap_or_else(|_| GmailConfig::default());
+        assert_eq!(config.oauth.client_id, "id-123");
+        assert_eq!(config.oauth.client_secret, "secret-456");
+        assert_eq!(config.oauth.redirect_uri, "http://localhost:9999/cb");
+        assert!(config.oauth.use_pkce);
+    }
+
+    #[test]
+    fn oauth_accepts_kebab_case_keys() {
+        let toml = r#"
+[oauth]
+client-id = "id-123"
+client-secret = "secret-456"
+"#;
+        let figment = Figment::new().merge(Toml::string(toml));
+        let config = figment
+            .extract::<GmailConfig>()
+            .unwrap_or_else(|_| GmailConfig::default());
+        assert_eq!(config.oauth.client_id, "id-123");
     }
 }
