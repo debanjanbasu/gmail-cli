@@ -11,6 +11,9 @@ categories = ["development-tools::ffi"]
 [lib]
 crate-type = ["cdylib"]
 
+[napi]
+metadata = [{ name = "gmail-skill-bindings", cargo-crate = "gmail-skill-bindings", cargo-crate-version = "0.1.0" }]
+
 [dependencies]
 gmail-core = { path = "../gmail-core" }
 napi = { workspace = true, features = ["napi8", "tokio_rt"] }

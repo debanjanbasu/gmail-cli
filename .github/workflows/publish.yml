@@ -1,0 +1,33 @@
+name: Publish to Crates.io
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache Cargo lock
+        uses: actions/cache@v4
+        with:
+          path: Cargo.lock
+          key: cargo-lock-${{ hashFiles('Cargo.toml') }}
+
+      - name: Publish package
+        run: cargo publish -p gmail-core
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
