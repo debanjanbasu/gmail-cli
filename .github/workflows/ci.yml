@@ -6,56 +6,40 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt, rust-src
+      - run: cargo fmt --all --check
+
   clippy:
     runs-on: ubuntu-latest
-    workspace:
-      python-version: '3.10'
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@nightly
         with:
-          toolchain: stable
-          components: clippy
-
-      - name: Cache Cargo registry
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/registry
-          key: cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Cache Cargo lock
-        uses: actions/cache@v4
-        with:
-          path: Cargo.lock
-          key: cargo-lock-${{ hashFiles('Cargo.toml') }}
-
-      - name: clippy -D warnings
-        run: cargo clippy --workspace --all-targets -D warnings
+          components: clippy, rust-src
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --workspace --all-targets -D warnings
 
   test:
-    runs-on: ubuntu-latest
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@nightly
         with:
-          toolchain: stable
-
-      - name: Cache Cargo registry
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/registry
-          key: cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Cache Cargo lock
-        uses: actions/cache@v4
-        with:
-          path: Cargo.lock
-          key: cargo-lock-${{ hashFiles('Cargo.toml') }}
-
-      - name: Run tests
-        run: cargo test --workspace
+          components: rust-src
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --workspace --locked

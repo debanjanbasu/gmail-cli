@@ -9,7 +9,7 @@ use tokio::sync::Semaphore;
 use tracing::{debug, info, warn};
 use url::Url;
 
-use crate::auth::GmailAuth;
+use crate::auth::{DeviceAuthChallenge, GmailAuth, TokenStorage};
 use crate::config::{GmailConfig, PerformanceConfig};
 use crate::error::{GmailError, Result};
 use crate::models::*;
@@ -144,10 +144,22 @@ impl GmailClientBuilder {
                     let mut perf_no_h3 = self.config.performance.clone();
                     perf_no_h3.enable_http3 = false;
                     http_client = build_http_client(&perf_no_h3);
-                    info.negotiated_version =
-                        probe(&http_client, &base_url, &auth, reqwest::Version::HTTP_2).await?;
-                    info.http3_effective = false;
-                    info.fell_back = true;
+                    match probe(&http_client, &base_url, &auth, reqwest::Version::HTTP_2).await {
+                        Ok(v) => {
+                            info.negotiated_version = v;
+                            info.http3_effective = false;
+                            info.fell_back = true;
+                        }
+                        Err(e) => {
+                            // A dead stored token (or an offline machine) must
+                            // not brick client construction: `auth login`
+                            // exists precisely to recover from this state,
+                            // and it needs no working token at all.
+                            warn!("HTTP/2 probe failed ({e}); continuing unprobed");
+                            info.negotiated_version = "not-probed".into();
+                            info.http3_effective = false;
+                        }
+                    }
                 }
             }
         } else {
@@ -230,6 +242,25 @@ impl GmailClient {
     /// Force re-authentication by invalidating token
     pub async fn force_refresh(&self) -> Result<()> {
         self.auth.force_refresh().await
+    }
+
+    /// Fresh interactive login (PKCE browser flow), dropping any stored
+    /// token first so a dead credential can never block consent.
+    pub async fn login(&self) -> Result<TokenStorage> {
+        self.auth.login().await
+    }
+
+    /// Start an OAuth device flow; display the challenge to the user.
+    pub async fn request_device_code(&self) -> Result<DeviceAuthChallenge> {
+        self.auth.request_device_code().await
+    }
+
+    /// Poll a device-flow challenge. `Ok(None)` means keep waiting.
+    pub async fn poll_device_code(
+        &self,
+        challenge: &mut DeviceAuthChallenge,
+    ) -> Result<Option<TokenStorage>> {
+        self.auth.poll_device_code(challenge).await
     }
 
     /// Build API URL with proper error handling
@@ -515,7 +546,11 @@ fn build_http_client(perf: &PerformanceConfig) -> ReqwestClient {
         .http2_keep_alive_interval(perf.http2_keepalive_interval())
         .http2_adaptive_window(perf.http2_adaptive_window)
         .brotli(perf.enable_brotli)
-        .zstd(perf.enable_zstd);
+        .zstd(perf.enable_zstd)
+        // Always on: Google frontends send gzip regardless of toggles, and
+        // advertising an encoding without decoding it hands raw compressed
+        // bytes to serde ("expected value at line 1 column 1").
+        .gzip(true);
 
     // Transport protocol: prior-knowledge modes are mutually exclusive.
     match resolve_transport_mode(

@@ -1,13 +1,13 @@
-## Contributing to gmail-opencode-rust
+## Contributing to gmail-cli
 
 Thank you for wanting to contribute! Please read through the following guidelines to make the process smooth.
 
 ### Development Setup
 
-1. **Install Rust**: `rustup default stable` (edition 2024, requires `reqwest_unstable` and `hyper_unstable_ffi` features)
-2. **Clone the repo**: `git clone https://github.com/debanjanbasu/gmail-opencode-rust.git`
+1. **Install Rust**: `rustup default nightly` (edition 2024; the `http3` feature requires nightly and the `--cfg reqwest_unstable` flags, which [`.cargo/config.toml`](./.cargo/config.toml) sets for you — also run `rustup component add rust-src`)
+2. **Clone the repo**: `git clone https://github.com/debanjanbasu/gmail-cli.git`
 3. **Config**: Create `~/.gmail-opencode/config.toml` with your OAuth credentials (see `config.toml.example`)
-4. **Auth**: Run `cargo run -p gmail-cli -- auth --force` to complete Google consent
+4. **Auth**: Run `cargo run -p gmail-cli -- auth login` to complete Google consent
 5. **Build**: `cargo build --workspace`
 6. **Test**: `cargo test --workspace`
 
@@ -38,4 +38,4 @@ Thank you for wanting to contribute! Please read through the following guideline
 
 - Use the GitHub issue tracker
 - Include `cargo metadata --no-deps --format-version 1` output if build issues
-- Specify OS, Rust version, and `gmail-opencode-rust` version
+- Specify OS, Rust version, and `gmail-cli` version

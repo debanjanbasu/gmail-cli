@@ -1,7 +1,5 @@
 //! OAuth authorization flow with PKCE
 
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use anyhow::anyhow;
 use base64::Engine;
 use rand::RngCore;
@@ -65,13 +63,22 @@ impl super::GmailAuth {
         let (code, _state) = self.start_callback_server().await?;
 
         // Exchange code for tokens
+        // The secret goes only to providers that mandate it (Google does,
+        // even for Desktop clients); PKCE-only providers get none.
         let mut form = vec![
             ("code", code),
             ("client_id", self.config.client_id.clone()),
-            ("client_secret", self.config.client_secret.clone()),
             ("redirect_uri", self.config.redirect_uri.clone()),
             ("grant_type", "authorization_code".to_string()),
         ];
+        if let Some(secret) = self
+            .config
+            .client_secret
+            .clone()
+            .filter(|s| !s.is_empty())
+        {
+            form.push(("client_secret", secret));
+        }
 
         if let Some(verifier) = pkce_verifier {
             form.push(("code_verifier", verifier));
@@ -85,29 +92,25 @@ impl super::GmailAuth {
             .await
             .map_err(GmailError::Http)?;
 
-        let token_data: serde_json::Value = response.json().await.map_err(GmailError::Http)?;
+        let status = response.status();
+        let body_text = response.text().await.map_err(GmailError::Http)?;
+        let token_data: serde_json::Value =
+            serde_json::from_str(&body_text).map_err(|e| {
+                GmailError::Auth(
+                    anyhow!("token endpoint returned {status}: unparseable body ({e})").into(),
+                )
+            })?;
 
-        let access_token = token_data["access_token"]
-            .as_str()
-            .ok_or_else(|| GmailError::Auth(anyhow!("No access token in response").into()))?
-            .to_string();
+        if !status.is_success() {
+            return Err(GmailError::Auth(
+                anyhow!(
+                    "token endpoint returned {status}: {}",
+                    super::device::error_detail(&token_data)
+                )
+                .into(),
+            ));
+        }
 
-        let expires_in = token_data["expires_in"].as_u64().unwrap_or(3600);
-
-        let refresh_token = token_data["refresh_token"].as_str().map(|s| s.to_string());
-
-        let expires_at = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_secs())
-            .unwrap_or(0)
-            + expires_in;
-
-        Ok(TokenStorage {
-            access_token,
-            refresh_token,
-            expires_at,
-            token_type: "Bearer".to_string(),
-            scope: self.config.scopes.join(" "),
-        })
+        super::device::token_storage_from_response(&token_data, &self.config.scopes)
     }
 }

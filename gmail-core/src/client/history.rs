@@ -28,8 +28,8 @@ impl super::GmailClient {
         }
 
         let response = self.execute_with_retry(request).await?;
-        let list_response: ListResponse<History> = response.json().await?;
-        Ok(list_response.items)
+        let list_response: HistoryList = response.json().await?;
+        Ok(list_response.history)
     }
 
     /// Get profile

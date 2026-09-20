@@ -31,3 +31,6 @@ tokio = { workspace = true, features = ["full"] }
 [[bin]]
 name = "gmail"
 path = "src/main.rs"
+
+# Intentionally not inheriting [workspace.lints] (pedantic/nursery deny).
+[lints]

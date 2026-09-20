@@ -3,8 +3,11 @@
 # Environment variables (GMAIL_*) take precedence over this file
 
 [oauth]
+# Register the OAuth client as a Desktop app and put its client ID here.
 client_id = ""
-client_secret = ""
+# Optional: sent at the token endpoint only when present. Google mandates
+# it even for Desktop clients; PKCE-only providers need no secret at all.
+# client_secret = ""
 redirect_uri = "http://localhost:3434/oauth/callback"
 scopes = [
     "https://www.googleapis.com/auth/gmail.readonly",

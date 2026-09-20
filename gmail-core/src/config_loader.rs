@@ -34,15 +34,11 @@ impl ConfigLoader {
             .extract()
             .map_err(|e| GmailError::Config(e.to_string()))?;
 
-        info!(
-            "Loaded config: client_id={}, client_secret={}",
-            config.oauth.client_id,
-            if config.oauth.client_secret.is_empty() {
-                "<empty>"
-            } else {
-                "<set>"
-            }
-        );
+        info!("Loaded config: client_id={}", config.oauth.client_id);
+        match config.oauth.client_secret.as_deref() {
+            Some(s) if !s.is_empty() => info!("client_secret: configured"),
+            _ => info!("client_secret: absent (PKCE-only)"),
+        }
         Ok(config)
     }
 

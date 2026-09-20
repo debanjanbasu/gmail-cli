@@ -12,10 +12,7 @@ version = "0.1.0"
 edition = "2024"
 license = "MIT"
 authors = ["Debanjan Basu <debanjanbasu2006@gmail.com>"]
-repository = "https://github.com/debanjanbasu/gmail-opencode-rust"
-description = "High-performance Gmail API client with verified HTTP/3 transport and streaming I/O"
-keywords = ["gmail", "api", "http3", "streaming", "email"]
-categories = ["api-bindings", "email", "network-programming"]
+repository = "https://github.com/debanjanbasu/gmail-cli"
 
 [workspace.dependencies]
 # ── HTTP/3 + Compression Stack ─────────────────────────────────────────────
@@ -23,6 +20,10 @@ reqwest = { version = "0.13.4", features = [
     "http3",           # UNSTABLE: HTTP/3 support via quinn
     "zstd",            # zstd decompression
     "brotli",          # brotli decompression
+    "gzip",            # gzip/deflate decompression (GFE sends gzip
+                       # even when only br/zstd are toggled; without this
+                       # raw compressed bytes reach serde)
+    "deflate",         # deflate decompression
     "rustls",          # rustls TLS backend
     "json", "form", "query",
     "stream"           # streaming request bodies (media upload)
@@ -41,9 +42,7 @@ serde_json = "1.0.151"
 
 # ── Auth ───────────────────────────────────────────────────────────────────
 url = "2.5.8"
-ring = "0.17.14"
 rustls = { version = "0.23.43", features = ["std", "logging", "aws-lc-rs"] }
-webpki-roots = "0.26.11"
 
 # ── Config & CLI ───────────────────────────────────────────────────────────
 clap = { version = "4.6.6", features = ["derive", "env", "wrap_help", "string"] }

@@ -16,8 +16,8 @@ impl super::GmailClient {
                     .get(self.api_url("users/me/settings/sendAs")?),
             )
             .await?;
-        let list_response: ListResponse<SendAs> = response.json().await?;
-        Ok(list_response.items)
+        let list_response: SendAsList = response.json().await?;
+        Ok(list_response.send_as)
     }
 
     /// Get send-as alias

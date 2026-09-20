@@ -27,6 +27,10 @@ rustflags = []
 
 # ──────────────────────────────────────────────────────────────────
 # Per-target optimizations
+# NOTE: a [target.*] rustflags table REPLACES [build] rustflags —
+# cargo does not merge them. So the three --cfg flags above must be
+# repeated in every table below, or crates gating on them (reqwest
+# http3, hyper ffi, tokio unstable) fail to compile on that target.
 # ──────────────────────────────────────────────────────────────────
 
 # WASM target (for future web support)
@@ -35,54 +39,50 @@ rustflags = [
     "-C", "target-feature=+bulk-memory,+crt-static,+multivalue,+mutable-globals,+nontrapping-fptoint,+reference-types,+sign-ext,+simd128",
     "-C", "panic=abort",
     "-C", "link-arg=--export=__heap_base",
+    "--cfg", "reqwest_unstable",
+    "--cfg", "hyper_unstable_ffi",
+    "--cfg", "tokio_unstable",
 ]
 
 # Apple Silicon: native CPU detection for dev, apple-m1 baseline for release.
 [target.aarch64-apple-darwin]
-rustflags = ["-C", "target-cpu=native", "-C", "panic=abort"]
+rustflags = ["-C", "target-cpu=native", "-C", "panic=abort", "--cfg", "reqwest_unstable", "--cfg", "hyper_unstable_ffi", "--cfg", "tokio_unstable"]
 
 # iOS Simulator
 [target.aarch64-apple-ios-sim]
-rustflags = ["-C", "panic=abort"]
+rustflags = ["-C", "panic=abort", "--cfg", "reqwest_unstable", "--cfg", "hyper_unstable_ffi", "--cfg", "tokio_unstable"]
 
 # iOS Device
 [target.aarch64-apple-ios]
-rustflags = ["-C", "panic=abort"]
+rustflags = ["-C", "panic=abort", "--cfg", "reqwest_unstable", "--cfg", "hyper_unstable_ffi", "--cfg", "tokio_unstable"]
 
 # Android arm64
 [target.aarch64-linux-android]
-rustflags = ["-C", "panic=abort"]
+rustflags = ["-C", "panic=abort", "--cfg", "reqwest_unstable", "--cfg", "hyper_unstable_ffi", "--cfg", "tokio_unstable"]
 
 # Android x86_64 (emulator)
 [target.x86_64-linux-android]
-rustflags = ["-C", "panic=abort"]
+rustflags = ["-C", "panic=abort", "--cfg", "reqwest_unstable", "--cfg", "hyper_unstable_ffi", "--cfg", "tokio_unstable"]
 
 # Linux x86_64: baseline x86-64-v3 (Haswell+, AVX2/BMI2/FMA).
 [target.x86_64-unknown-linux-gnu]
-rustflags = ["-C", "target-cpu=x86-64-v3", "-C", "panic=abort"]
+rustflags = ["-C", "target-cpu=x86-64-v3", "-C", "panic=abort", "--cfg", "reqwest_unstable", "--cfg", "hyper_unstable_ffi", "--cfg", "tokio_unstable"]
+linker = "aarch64-linux-gnu-gcc"
 
 # Linux aarch64: use native CPU features.
 [target.aarch64-unknown-linux-gnu]
-rustflags = ["-C", "target-cpu=native", "-C", "panic=abort"]
+rustflags = ["-C", "target-cpu=native", "-C", "panic=abort", "--cfg", "reqwest_unstable", "--cfg", "hyper_unstable_ffi", "--cfg", "tokio_unstable"]
 linker = "aarch64-linux-gnu-gcc"
 
 # Windows x86_64: baseline x86-64-v3.
 [target.x86_64-pc-windows-msvc]
-rustflags = ["-C", "target-cpu=x86-64-v3", "-C", "panic=abort"]
+rustflags = ["-C", "target-cpu=x86-64-v3", "-C", "panic=abort", "--cfg", "reqwest_unstable", "--cfg", "hyper_unstable_ffi", "--cfg", "tokio_unstable"]
 
 # musl targets for static linking
 [target.x86_64-unknown-linux-musl]
-rustflags = ["-C", "target-cpu=x86-64-v3", "-C", "panic=abort", "-C", "link-arg=-static"]
+rustflags = ["-C", "target-cpu=x86-64-v3", "-C", "panic=abort", "-C", "link-arg=-static", "--cfg", "reqwest_unstable", "--cfg", "hyper_unstable_ffi", "--cfg", "tokio_unstable"]
 linker = "clang"
 
 [target.aarch64-unknown-linux-musl]
-rustflags = ["-C", "target-cpu=native", "-C", "panic=abort", "-C", "link-arg=-static"]
+rustflags = ["-C", "target-cpu=native", "-C", "panic=abort", "-C", "link-arg=-static", "--cfg", "reqwest_unstable", "--cfg", "hyper_unstable_ffi", "--cfg", "tokio_unstable"]
 linker = "clang"
-
-# ──────────────────────────────────────────────────────────────────
-# Cross-compilation (requires cross crate)
-# ──────────────────────────────────────────────────────────────────
-
-[target.x86_64-pc-windows-gnu]
-linker = "x86_64-w64-mingw32-gcc"
-ar = "x86_64-w64-mingw32-gcc-ar"

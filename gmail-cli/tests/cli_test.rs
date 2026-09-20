@@ -133,20 +133,24 @@ async fn test_watch_subcommands() {
 #[tokio::test]
 async fn test_format_option() {
     let mut cmd = Command::cargo_bin("gmail").unwrap();
-    cmd.arg("--format").arg("table").arg("--help");
-    // Should show help (format accepted) without crashing
+    cmd.arg("message")
+        .arg("search")
+        .arg("--format")
+        .arg("table")
+        .arg("--help");
+    // Should show help (format accepted on the subcommand) without crashing
     cmd.assert()
         .success()
-        .stdout(predicate::str::contains("auth"));
+        .stdout(predicate::str::contains("query"));
 }
 
 #[tokio::test]
 async fn test_invalid_format() {
     let mut cmd = Command::cargo_bin("gmail").unwrap();
-    cmd.arg("--format")
-        .arg("invalid")
-        .arg("message")
+    cmd.arg("message")
         .arg("search")
+        .arg("--format")
+        .arg("invalid")
         .arg("test");
     cmd.assert()
         .failure()

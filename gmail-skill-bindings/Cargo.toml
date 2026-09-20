@@ -5,14 +5,11 @@ edition = { workspace = true }
 license = { workspace = true }
 authors = { workspace = true }
 repository = { workspace = true }
-description = "NAPI bindings for gmail-opencode skill integration"
+description = "NAPI bindings for gmail-cli skill integration"
 categories = ["development-tools::ffi"]
 
 [lib]
 crate-type = ["cdylib"]
-
-[napi]
-metadata = [{ name = "gmail-skill-bindings", cargo-crate = "gmail-skill-bindings", cargo-crate-version = "0.1.0" }]
 
 [dependencies]
 gmail-core = { path = "../gmail-core" }
@@ -20,3 +17,5 @@ napi = { workspace = true, features = ["napi8", "tokio_rt"] }
 napi-derive = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
+# Intentionally not inheriting [workspace.lints] (pedantic/nursery deny).
+[lints]

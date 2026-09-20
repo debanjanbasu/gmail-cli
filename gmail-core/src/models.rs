@@ -9,6 +9,8 @@ use std::collections::HashMap;
 pub struct Message {
     pub id: String,
     pub thread_id: String,
+    // Gmail omits labelIds on minimal-format messages (e.g. history entries).
+    #[serde(default)]
     pub label_ids: Vec<String>,
     pub snippet: Option<String>,
     pub history_id: Option<String>,
@@ -104,8 +106,12 @@ pub struct SendAs {
     pub display_name: Option<String>,
     pub reply_to_address: Option<String>,
     pub signature: Option<String>,
+    // Gmail omits false booleans instead of sending `false`.
+    #[serde(default)]
     pub is_primary: bool,
+    #[serde(default)]
     pub is_default: bool,
+    #[serde(default)]
     pub treat_as_alias: bool,
     pub verification_status: Option<String>,
 }
@@ -138,6 +144,7 @@ pub struct HistoryMessageDeleted {
 #[serde(rename_all = "camelCase")]
 pub struct HistoryLabelAdded {
     pub message: Message,
+    #[serde(default)]
     pub label_ids: Vec<String>,
 }
 
@@ -145,6 +152,7 @@ pub struct HistoryLabelAdded {
 #[serde(rename_all = "camelCase")]
 pub struct HistoryLabelRemoved {
     pub message: Message,
+    #[serde(default)]
     pub label_ids: Vec<String>,
 }
 
@@ -170,6 +178,8 @@ pub struct WatchResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchResponse {
+    // Gmail omits the key instead of sending `[]` when there are no hits.
+    #[serde(default)]
     pub messages: Vec<MessageRef>,
     pub next_page_token: Option<String>,
     pub result_size_estimate: Option<u64>,
@@ -183,13 +193,57 @@ pub struct MessageRef {
     pub thread_id: String,
 }
 
-/// List response wrapper
+/// List response wrappers.
+///
+/// Gmail keys list payloads by resource and omits the key instead of
+/// sending an empty array, so each resource gets its own plain serde
+/// struct with a defaulted vector — no aliases, no custom impls.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ListResponse<T> {
-    pub items: Vec<T>,
+pub struct LabelList {
+    #[serde(default)]
+    pub labels: Vec<Label>,
     pub next_page_token: Option<String>,
     pub result_size_estimate: Option<u64>,
+}
+
+/// List response wrapper.
+///
+/// Gmail keys list payloads by resource and omits the key instead of
+/// sending an empty array, so each resource gets its own plain serde
+/// struct with a defaulted vector — no aliases, no custom impls.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DraftList {
+    #[serde(default)]
+    pub drafts: Vec<Draft>,
+    pub next_page_token: Option<String>,
+    pub result_size_estimate: Option<u64>,
+}
+
+/// List response wrapper.
+///
+/// Gmail keys list payloads by resource and omits the key instead of
+/// sending an empty array, so each resource gets its own plain serde
+/// struct with a defaulted vector — no aliases, no custom impls.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryList {
+    #[serde(default)]
+    pub history: Vec<History>,
+    pub next_page_token: Option<String>,
+}
+
+/// List response wrapper.
+///
+/// Gmail keys list payloads by resource and omits the key instead of
+/// sending an empty array, so each resource gets its own plain serde
+/// struct with a defaulted vector — no aliases, no custom impls.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SendAsList {
+    #[serde(default)]
+    pub send_as: Vec<SendAs>,
 }
 
 /// Batch request

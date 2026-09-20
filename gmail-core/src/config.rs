@@ -37,8 +37,12 @@ pub struct OAuthConfig {
     #[serde(alias = "client_id")]
     pub client_id: String,
 
+    /// Optional client secret. Sent at the token endpoint only when
+    /// present and non-empty. PKCE-only providers (no secret issued)
+    /// work with this absent; providers that mandate a secret
+    /// (currently including Google, even for Desktop clients) need it.
     #[serde(alias = "client_secret")]
-    pub client_secret: String,
+    pub client_secret: Option<String>,
 
     #[serde(default = "default_redirect_uri", alias = "redirect_uri")]
     pub redirect_uri: String,
@@ -68,7 +72,7 @@ impl Default for OAuthConfig {
     fn default() -> Self {
         Self {
             client_id: String::new(),
-            client_secret: String::new(),
+            client_secret: None,
             redirect_uri: "http://localhost:3434/oauth/callback".into(),
             scopes: vec![
                 "https://www.googleapis.com/auth/gmail.readonly".into(),
@@ -353,7 +357,7 @@ use_pkce = true
             .extract::<GmailConfig>()
             .unwrap_or_else(|_| GmailConfig::default());
         assert_eq!(config.oauth.client_id, "id-123");
-        assert_eq!(config.oauth.client_secret, "secret-456");
+        assert_eq!(config.oauth.client_secret.as_deref(), Some("secret-456"));
         assert_eq!(config.oauth.redirect_uri, "http://localhost:9999/cb");
         assert!(config.oauth.use_pkce);
     }

@@ -23,7 +23,7 @@ pub mod fs_io;
 pub mod models;
 pub mod runtime;
 
-pub use auth::{AuthConfigBuilder, GmailAuth, TokenStorage};
+pub use auth::{AuthConfigBuilder, DeviceAuthChallenge, GmailAuth, TokenStorage};
 pub use client::{GmailClient, GmailClientBuilder};
 pub use config::{GmailConfig, OAuthConfig, PerformanceConfig};
 pub use config_loader::ConfigLoader;
@@ -33,7 +33,7 @@ pub use runtime::{RuntimeFeatures, detect_runtime_features};
 
 /// Prelude for convenient imports
 pub mod prelude {
-    pub use crate::auth::{AuthConfigBuilder, GmailAuth, TokenStorage};
+    pub use crate::auth::{AuthConfigBuilder, DeviceAuthChallenge, GmailAuth, TokenStorage};
     pub use crate::client::{GmailClient, GmailClientBuilder};
     pub use crate::config::{GmailConfig, OAuthConfig, PerformanceConfig};
     pub use crate::config_loader::ConfigLoader;

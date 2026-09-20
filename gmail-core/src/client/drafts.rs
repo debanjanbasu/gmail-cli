@@ -47,8 +47,8 @@ impl super::GmailClient {
             )
             .await?;
 
-        let list_response: ListResponse<Draft> = response.json().await?;
-        Ok(list_response.items)
+        let list_response: DraftList = response.json().await?;
+        Ok(list_response.drafts)
     }
 
     /// Get draft

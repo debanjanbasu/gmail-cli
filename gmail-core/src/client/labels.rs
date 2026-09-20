@@ -13,8 +13,8 @@ impl super::GmailClient {
         let response = self
             .execute_with_retry(self.http_client.get(self.api_url("users/me/labels")?))
             .await?;
-        let list_response: ListResponse<Label> = response.json().await?;
-        Ok(list_response.items)
+        let list_response: LabelList = response.json().await?;
+        Ok(list_response.labels)
     }
 
     /// Get label

@@ -12,10 +12,12 @@ use tracing::{debug, info, warn};
 use crate::config::OAuthConfig;
 use crate::error::{GmailError, Result};
 
+mod device;
 mod oauth;
 mod server;
 mod token;
 
+pub use device::DeviceAuthChallenge;
 pub use token::TokenStorage;
 
 const GOOGLE_TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
@@ -142,17 +144,27 @@ impl GmailAuth {
         Ok(storage.access_token)
     }
 
-    /// Refresh access token using refresh token
+    /// Refresh access token using refresh token.
+    /// The secret is sent only when configured (Google mandates it even
+    /// for Desktop clients; PKCE-only providers omit it entirely).
     async fn refresh_token(&self, refresh_token: &str) -> Result<TokenStorage> {
+        let mut form = vec![
+            ("client_id", self.config.client_id.as_str()),
+            ("refresh_token", refresh_token),
+            ("grant_type", "refresh_token"),
+        ];
+        if let Some(secret) = self
+            .config
+            .client_secret
+            .as_deref()
+            .filter(|s| !s.is_empty())
+        {
+            form.push(("client_secret", secret));
+        }
         let response = self
             .http_client
             .post(self.token_endpoint.as_str())
-            .form(&[
-                ("client_id", self.config.client_id.as_str()),
-                ("client_secret", self.config.client_secret.as_str()),
-                ("refresh_token", refresh_token),
-                ("grant_type", "refresh_token"),
-            ])
+            .form(&form)
             .send()
             .await
             .map_err(GmailError::Http)?;
@@ -254,8 +266,9 @@ impl AuthConfigBuilder {
         self
     }
 
-    pub fn client_secret(mut self, secret: impl Into<String>) -> Self {
-        self.config.client_secret = secret.into();
+    pub fn client_secret(mut self, secret: Option<String>) -> Self {
+        // Empty strings behave as absent: the secret is omitted everywhere.
+        self.config.client_secret = secret.filter(|s| !s.is_empty());
         self
     }
 

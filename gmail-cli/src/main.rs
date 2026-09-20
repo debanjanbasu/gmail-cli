@@ -12,16 +12,16 @@ use commands::{
     auth, drafts, history, import, labels, message_ops, messages, profile, send, send_as,
     thread_ops, transport, watch,
 };
-use output::OutputFormat;
 
 #[derive(Parser)]
 #[command(name = "gmail", version, about = "High-performance Gmail CLI")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
-
-    #[arg(short, long, global = true, value_enum, default_value = "json")]
-    format: OutputFormat,
+    // NOTE: no global --format flag on purpose. A global `format` collides
+    // by ID with per-command `format` fields of *different types*
+    // (e.g. message get's MessageFormat), which panics clap's downcast at
+    // runtime (0xC0000409). Every subcommand declares its own -f/--format.
 }
 
 #[derive(Subcommand)]
@@ -66,9 +66,15 @@ enum Commands {
 async fn main() -> Result<()> {
     tracing_subscriber::registry()
         .with(tracing_subscriber::EnvFilter::new(
-            std::env::var("RUST_LOG").unwrap_or_else(|_| "info".into()),
+            // Default: info, but silence quinn_udp's harmless IPv6
+            // network-unreachable warnings on v6-less networks (v4 wins).
+            std::env::var("RUST_LOG").unwrap_or_else(|_| "info,quinn_udp=error".into()),
         ))
-        .with(tracing_subscriber::fmt::layer())
+        // Logs go to stderr so stdout stays pure machine-readable output
+        // (`gmail profile | jq` must not receive log lines).
+        .with(
+            tracing_subscriber::fmt::layer().with_writer(std::io::stderr),
+        )
         .init();
 
     let cli = Cli::parse();
