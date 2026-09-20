@@ -48,12 +48,7 @@ impl super::GmailAuth {
             ("client_id", self.config.client_id.clone()),
             ("scope", self.config.scopes.join(" ")),
         ];
-        if let Some(secret) = self
-            .config
-            .client_secret
-            .clone()
-            .filter(|s| !s.is_empty())
-        {
+        if let Some(secret) = self.config.client_secret.clone().filter(|s| !s.is_empty()) {
             form.push(("client_secret", secret));
         }
 
@@ -67,12 +62,11 @@ impl super::GmailAuth {
 
         let status = response.status();
         let body_text = response.text().await.map_err(GmailError::Http)?;
-        let body: serde_json::Value =
-            serde_json::from_str(&body_text).map_err(|e| {
-                GmailError::Auth(
-                    anyhow!("device endpoint returned {status}: unparseable body ({e})").into(),
-                )
-            })?;
+        let body: serde_json::Value = serde_json::from_str(&body_text).map_err(|e| {
+            GmailError::Auth(
+                anyhow!("device endpoint returned {status}: unparseable body ({e})").into(),
+            )
+        })?;
 
         if !status.is_success() {
             return Err(GmailError::Auth(
@@ -83,9 +77,9 @@ impl super::GmailAuth {
         let device_code = body["device_code"].as_str().ok_or_else(|| {
             GmailError::Auth(anyhow!("device endpoint omitted device_code").into())
         })?;
-        let user_code = body["user_code"].as_str().ok_or_else(|| {
-            GmailError::Auth(anyhow!("device endpoint omitted user_code").into())
-        })?;
+        let user_code = body["user_code"]
+            .as_str()
+            .ok_or_else(|| GmailError::Auth(anyhow!("device endpoint omitted user_code").into()))?;
         let verification_url = body
             .get("verification_url")
             .or_else(|| body.get("verification_uri"))
@@ -122,12 +116,7 @@ impl super::GmailAuth {
             ("device_code", challenge.device_code.clone()),
             ("grant_type", DEVICE_GRANT.to_string()),
         ];
-        if let Some(secret) = self
-            .config
-            .client_secret
-            .clone()
-            .filter(|s| !s.is_empty())
-        {
+        if let Some(secret) = self.config.client_secret.clone().filter(|s| !s.is_empty()) {
             form.push(("client_secret", secret));
         }
 
@@ -142,12 +131,9 @@ impl super::GmailAuth {
         // Device polling reports status via 400 + JSON error codes, so the
         // body is parsed before looking at the HTTP status.
         let body_text = response.text().await.map_err(GmailError::Http)?;
-        let body: serde_json::Value =
-            serde_json::from_str(&body_text).map_err(|e| {
-                GmailError::Auth(
-                    anyhow!("token endpoint returned unparseable body ({e})").into(),
-                )
-            })?;
+        let body: serde_json::Value = serde_json::from_str(&body_text).map_err(|e| {
+            GmailError::Auth(anyhow!("token endpoint returned unparseable body ({e})").into())
+        })?;
 
         if let Some(code) = body["error"].as_str() {
             match code {
@@ -194,9 +180,7 @@ pub(crate) fn token_storage_from_response(
         .to_string();
 
     let expires_in = token_data["expires_in"].as_u64().unwrap_or(3600);
-    let refresh_token = token_data["refresh_token"]
-        .as_str()
-        .map(str::to_string);
+    let refresh_token = token_data["refresh_token"].as_str().map(str::to_string);
 
     let expires_at = SystemTime::now()
         .duration_since(UNIX_EPOCH)

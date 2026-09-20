@@ -72,9 +72,7 @@ async fn main() -> Result<()> {
         ))
         // Logs go to stderr so stdout stays pure machine-readable output
         // (`gmail profile | jq` must not receive log lines).
-        .with(
-            tracing_subscriber::fmt::layer().with_writer(std::io::stderr),
-        )
+        .with(tracing_subscriber::fmt::layer().with_writer(std::io::stderr))
         .init();
 
     let cli = Cli::parse();

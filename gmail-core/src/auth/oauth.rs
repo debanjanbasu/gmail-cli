@@ -71,12 +71,7 @@ impl super::GmailAuth {
             ("redirect_uri", self.config.redirect_uri.clone()),
             ("grant_type", "authorization_code".to_string()),
         ];
-        if let Some(secret) = self
-            .config
-            .client_secret
-            .clone()
-            .filter(|s| !s.is_empty())
-        {
+        if let Some(secret) = self.config.client_secret.clone().filter(|s| !s.is_empty()) {
             form.push(("client_secret", secret));
         }
 
@@ -94,12 +89,11 @@ impl super::GmailAuth {
 
         let status = response.status();
         let body_text = response.text().await.map_err(GmailError::Http)?;
-        let token_data: serde_json::Value =
-            serde_json::from_str(&body_text).map_err(|e| {
-                GmailError::Auth(
-                    anyhow!("token endpoint returned {status}: unparseable body ({e})").into(),
-                )
-            })?;
+        let token_data: serde_json::Value = serde_json::from_str(&body_text).map_err(|e| {
+            GmailError::Auth(
+                anyhow!("token endpoint returned {status}: unparseable body ({e})").into(),
+            )
+        })?;
 
         if !status.is_success() {
             return Err(GmailError::Auth(

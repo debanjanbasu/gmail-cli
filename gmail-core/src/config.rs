@@ -5,7 +5,10 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 #[cfg(test)]
-use figment::{providers::{Format, Toml}, Figment};
+use figment::{
+    Figment,
+    providers::{Format, Toml},
+};
 
 /// Main configuration for Gmail client
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
