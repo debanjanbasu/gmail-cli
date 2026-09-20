@@ -67,7 +67,6 @@ rustflags = ["-C", "panic=abort", "--cfg", "reqwest_unstable", "--cfg", "hyper_u
 # Linux x86_64: baseline x86-64-v3 (Haswell+, AVX2/BMI2/FMA).
 [target.x86_64-unknown-linux-gnu]
 rustflags = ["-C", "target-cpu=x86-64-v3", "-C", "panic=abort", "--cfg", "reqwest_unstable", "--cfg", "hyper_unstable_ffi", "--cfg", "tokio_unstable"]
-linker = "aarch64-linux-gnu-gcc"
 
 # Linux aarch64: use native CPU features.
 [target.aarch64-unknown-linux-gnu]
