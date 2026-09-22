@@ -1,0 +1,44 @@
+[package]
+# crates.io name: `grr` is taken (an unrelated 2020 OpenGL crate), so the
+# package publishes as `grr-cli` while the binary stays `grr`
+# (`cargo install grr-cli` -> grr.exe). Repo/folder naming matches.
+name = "grr-cli"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+authors = { workspace = true }
+repository = { workspace = true }
+description = "Google tools from the terminal, at maximum performance: zero-config Gmail, Calendar, Drive, Contacts, Chat and Forms over HTTP/3"
+categories = ["command-line-utilities", "email"]
+
+[dependencies]
+# http3 always on in the CLI: it is this project's raison d'être. Nightly
+# required; .cargo/config.toml sets the reqwest_unstable cfg.
+grr-core = { path = "../grr-core", version = "0.2.0", features = ["http3"] }
+clap = { workspace = true, features = ["derive", "env", "help", "usage", "cargo", "color", "unicode", "wrap_help"] }
+dirs = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+tokio-util = { workspace = true }
+futures = { workspace = true }
+serde_json = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+comfy-table = "8.0"
+mime_guess = "2.0"
+base64 = { workspace = true, features = ["alloc", "std"] }
+
+[dev-dependencies]
+assert_cmd = "2.2"
+predicates = "3.1"
+tokio = { workspace = true, features = ["full"] }
+
+[[bin]]
+name = "grr"
+path = "src/main.rs"
+
+# Intentionally not inheriting [workspace.lints] (pedantic/nursery deny).
+[lints]
+
+

@@ -14,18 +14,15 @@ jobs:
       fail-fast: false
       matrix:
         target:
-          - name: x86_64-windows
+          - name: windows-x86_64
             os: windows-latest
-            artifact: gmail.exe
-            archive: gmail-x86_64-windows.zip
-          - name: x86_64-linux
+            artifact: grr.exe
+          - name: linux-x86_64
             os: ubuntu-latest
-            artifact: gmail
-            archive: gmail-x86_64-linux.tar.gz
-          - name: aarch64-macos
+            artifact: grr
+          - name: macos-aarch64
             os: macos-latest
-            artifact: gmail
-            archive: gmail-aarch64-macos.tar.gz
+            artifact: grr
     runs-on: ${{ matrix.target.os }}
     steps:
       - uses: actions/checkout@v4
@@ -36,35 +33,39 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      # .cargo/config.toml injects --cfg reqwest_unstable (http3 is why we're
+      # on nightly) for each of these host targets — no RUSTFLAGS needed.
       - name: Build release binary
-        run: cargo build --release --locked -p gmail-cli
+        run: cargo build --release --locked -p grr
 
       - name: Archive (unix)
         if: runner.os != 'Windows'
-        run: tar czf "${{ matrix.target.archive }}" -C target/release "${{ matrix.target.artifact }}"
+        run: tar czf "grr-${{ github.ref_name }}-${{ matrix.target.name }}.tar.gz" -C target/release "${{ matrix.target.artifact }}"
 
       - name: Archive (windows)
         if: runner.os == 'Windows'
-        run: Compress-Archive -Path target/release/gmail.exe -DestinationPath ${{ matrix.target.archive }}
+        run: Compress-Archive -Path target/release/${{ matrix.target.artifact }} -DestinationPath "grr-${{ github.ref_name }}-${{ matrix.target.name }}.zip"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.target.archive }}
-          path: ${{ matrix.target.archive }}
+          name: grr-${{ github.ref_name }}-${{ matrix.target.name }}
+          path: grr-${{ github.ref_name }}-${{ matrix.target.name }}.*
 
   release:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           merge-multiple: true
+      - name: Generate checksums
+        run: sha256sum grr-* > SHA256SUMS
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           files: |
-            gmail-x86_64-windows.zip
-            gmail-x86_64-linux.tar.gz
-            gmail-aarch64-macos.tar.gz
+            grr-${{ github.ref_name }}-windows-x86_64.zip
+            grr-${{ github.ref_name }}-linux-x86_64.tar.gz
+            grr-${{ github.ref_name }}-macos-aarch64.tar.gz
+            SHA256SUMS

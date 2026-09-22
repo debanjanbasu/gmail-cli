@@ -1,152 +1,168 @@
-# gmail-cli
+# grr
 
-High-performance Gmail CLI in Rust: verified HTTP/3 transport, streaming I/O,
-PKCE + device-code OAuth, and clean JSON output designed for both humans and
-AI agents.
+[![CI](https://github.com/debanjanbasu/grr-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/debanjanbasu/grr-cli/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![crates.io](https://img.shields.io/badge/crates.io-pending-orange)](https://github.com/debanjanbasu/grr-cli/releases)
 
+**Zero-config, maximum-performance Google tools from the terminal.** Gmail is the first namespaced service: every mail command lives under `grr gmail ...`, stdout is always clean machine-readable output, and the only thing you ever configure is one OAuth client ID.
+
+```sh
+grr auth login
+grr gmail message search "in:inbox" --max 5
+grr gmail message get 191f8ab2 --body
+grr schema
 ```
-$ gmail message search "in:inbox" -m 5 | jq -r '.[].id'
-$ gmail auth login                    # browser loopback flow (PKCE)
-$ gmail auth login --device           # headless fallback (RFC 8628)
-```
-
-## Features
-
-- **HTTP/3 by default** — QUIC via reqwest's unstable `http3` feature; probes
-  once at startup, falls back to HTTP/2 silently (`gmail transport` shows what
-  was negotiated)
-- **Streaming uploads** — RFC 822 media upload via a `futures` state machine
-  (192 KiB chunks, incremental base64), so large attachments never sit fully
-  in memory
-- **Auth that fits the environment** — PKCE browser loopback flow by default;
-  RFC 8628 device flow for headless machines; `client_secret` sent only when
-  configured (Google requires it, PKCE-only providers don't)
-- **Agent-friendly output** — JSON on stdout, logs on stderr: `| jq` just
-  works. `-f table|pretty|jsonl` for humans
-- **Parallel batch operations** — semaphore-bounded concurrency for
-  `msg batch-label` / `batch-delete`
 
 ## Install
 
-### From source (any platform)
+**Prebuilt binaries** — Windows x64, Linux x64, macOS ARM:
+[GitHub Releases](https://github.com/debanjanbasu/grr-cli/releases)
 
-Requires Rust nightly and the MSVC toolchain (Windows) or Xcode CLT (macOS):
+**From source** (requires Rust nightly — see [Development](#development)):
 
 ```sh
-git clone https://github.com/debanjanbasu/gmail-cli.git
-cd gmail-cli
-cargo install --path gmail-cli --locked
-gmail --version
+cargo install --git https://github.com/debanjanbasu/grr-cli --locked
 ```
 
-### Prebuilt binaries
+or from a local clone:
 
-Download from [GitHub Releases](https://github.com/debanjanbasu/gmail-cli/releases)
-— built for Windows x64, Linux x64, and macOS ARM by the release workflow.
+```sh
+git clone https://github.com/debanjanbasu/grr-cli
+cargo install --path grr --locked
+```
 
-## Setup
+**Package managers** (pending first release):
 
-1. **Google Cloud Console** (same project, Gmail API enabled):
-   - *Google Auth platform → Clients → Create client → Desktop app*
-   - Copy the **client ID** (a `.apps.googleusercontent.com` string)
-   - If your project is in **Testing** mode, add yourself under *Audience → Test users*
-2. **Configure** — `~/.gmail-opencode/config.toml`:
+```sh
+cargo install grr            # crates.io
+winget install debanjanbasu.grr
+brew install debanjanbasu/tap/grr
+```
+
+See [Packaging & status](#packaging--status) for details.
+
+## 60-second quickstart
+
+1. **One-time Google Cloud setup** (~5 min): create a Desktop OAuth client and copy its client ID.
+   Follow [docs/gcp-setup.md](docs/gcp-setup.md), or run [scripts/setup-gcp.ps1](scripts/setup-gcp.ps1) (Windows) / [scripts/setup-gcp.sh](scripts/setup-gcp.sh) (macOS/Linux) — they automate the gcloud parts and print the console links for the browser steps.
+
+2. **Configure** — `~/.grr/config.toml` (Windows: `%USERPROFILE%\.grr\config.toml`; a legacy `~/.gmail-opencode/config.toml` is still read):
 
    ```toml
    [oauth]
-   client_id = "<your-client-id>.apps.googleusercontent.com"
-   # Optional: Google mandates a secret even for Desktop clients.
-   # Omit it entirely for PKCE-only providers.
-   # client_secret = "<secret>"
-
-   use_pkce = true
+   client_id = "123456789-abc.apps.googleusercontent.com"
+   # Optional — Google shows it next to the client ID. Sent at the token
+   # endpoint only when present; PKCE is always on.
+   # client_secret = "GOCSPX-..."
    ```
 
-   See [`config.toml.example`](./config.toml.example) for the full schema
-   (performance tuning, compression, cache). `GMAIL_CONFIG_PATH` overrides
-   the file location; `GMAIL_OAUTH__CLIENT_ID` etc. override individual
-   values.
-3. **Authenticate**:
+3. **Authenticate and verify**:
 
    ```sh
-   gmail auth login            # opens your browser, loopback on :3434
-   gmail auth login --device   # prints a URL + code for another device
-   gmail profile               # verify: prints your account profile
+   grr auth login
+   grr gmail profile
    ```
 
-Tokens auto-refresh and live in the platform cache dir
-(`%LOCALAPPDATA%\gmail-opencode\token.json` on Windows). If the OAuth client
-is in Testing mode, Google expires refresh tokens after ~7 days — just run
-`gmail auth login` again. Rotating a reset client secret without echoing it:
+   Headless machine? `grr auth login --device` prints a URL + code instead of opening a browser.
 
-```powershell
-./scripts/set-client-secret.ps1   # hidden prompt; -EnvVarName for CI
-```
-
-## Usage
-
-| Command group | Examples |
-| --- | --- |
-| `message` | `search "from:github.com" -m 10`, `get <id>`, `thread <id>`, `attachment <msgId> <attId> -o out.bin` |
-| `msg` | `label <id> --add STARRED --remove UNREAD`, `trash`, `untrash`, `delete`, `batch-label --ids a,b --add READ`, `batch-delete --ids a,b` |
-| `label` | `list`, `get`, `create "Name"`, `update`, `delete` |
-| `draft` | `create <to> <subject> <body>`, `list`, `get`, `update`, `delete`, `send` |
-| `send` | `send <to> <subject> <body> [--cc] [--bcc]`, `send-attach <to> <subject> <body> --attachments a.pdf,b.png` |
-| `thread` | `label`, `trash`, `untrash`, `delete` |
-| `history` | `history <startHistoryId> [--label-id] [-m N]` |
-| `send-as` | `list`, `get`, `create`, `update`, `delete` |
-| `watch` | `start <topicName>`, `stop` (Gmail push notifications) |
-| `import` | `import --file message.rfc822 [--deleted]` |
-| `profile` / `transport` / `auth` | account info, negotiated protocol info, login/logout |
-
-Every subcommand takes `-f json|jsonl|table|pretty` (default `json`).
-Logs go to stderr — stdout is always parseable:
+## Usage highlights
 
 ```sh
-gmail message search "in:inbox" -m 1 | jq -r '.[0].id'
+grr gmail message search "from:github.com" --max 10
+grr gmail message get 191f8ab2 --body --max-length 2000
+grr gmail message batch-read --ids 191f8ab2,191f8cd4 --body
+grr gmail msg batch-label --search "from:linkedin.com" --remove INBOX --dry-run
+grr gmail msg batch-label --search "from:linkedin.com" --remove INBOX
+grr gmail send send you@example.com "Quick question" "Body text"
+grr gmail send send-attach you@example.com "Invoice" "See attached" --attachments invoice.pdf
+grr transport
+grr schema --format pretty
 ```
+
+Every data command takes `-f/--format json|jsonl|table|pretty` (default `json`; on `message get` the output flag is `-o` because `-f` there selects the Gmail message format). Logs go to stderr, so stdout is always parseable:
+
+```sh
+grr gmail message search "in:inbox" --max 1 | jq -r '.[0].id'
+```
+
+### Command reference
+
+| Group | Commands |
+| --- | --- |
+| `grr auth` | `login [--device]`, `status` |
+| `grr gmail message` | `search <query> [--max N]`, `get <id> [--format full\|metadata\|minimal\|raw] [--body] [--max-length N]`, `thread <id>`, `batch-read --ids a,b,c [--body]`, `attachment <msg-id> <att-id> [-o FILE]` |
+| `grr gmail msg` | `label <id> --add L1 --remove L2`, `trash <id>`, `untrash <id>`, `delete <id>`, `batch-label (--ids a,b \| --search "query") --add/--remove ... [--max N] [--dry-run]`, `batch-delete (--ids a,b \| --search "query") [--max N] [--dry-run]` |
+| `grr gmail label` | `list`, `get <id>`, `create <name>`, `update <id>`, `delete <id>` |
+| `grr gmail draft` | `create <to> <subject> <body>`, `list`, `get <id>`, `update <id> <to> <subject> <body>`, `delete <id>`, `send <id>` |
+| `grr gmail send` | `send <to> <subject> <body> [--cc] [--bcc]`, `send-attach <to> <subject> <body> --attachments f1,f2 [--thread-id] [--cc] [--bcc]` |
+| `grr gmail thread` | `label <id> --add/--remove ...`, `trash <id>`, `untrash <id>`, `delete <id>` |
+| `grr gmail history` | `history <start-history-id> [--label-id] [--max N]` |
+| `grr gmail send-as` | `list`, `get <email>`, `create <email>`, `update <email>`, `delete <email>` |
+| `grr gmail profile` | mailbox profile |
+| `grr gmail watch` | `start <topic> [--label-ids]`, `stop` (push notifications) |
+| `grr gmail import` | `import <rfc822-file> [--deleted]` |
+| `grr transport` | negotiated HTTP version + runtime features |
+| `grr schema` | the full command tree as JSON |
+
+Details worth knowing:
+
+- **`--body`** returns `{message, body}` where `body` is the decoded text (`text/plain` preferred, `text/html` fallback), truncated to `--max-length` (default 800) with a `...[truncated]` marker — sized for LLM context windows.
+- **Batch ops** accept `--ids a,b,c` or `--search "query"` (resolves IDs by running the query, capped by `--max`, default 10000), plus `--dry-run`. Calls are chunked at 1000 IDs (Gmail API batch limit) and fanned out in parallel.
+- **`attachment`** prints base64 (URL-safe) to stdout when no `-o FILE` is given, so piping is always binary-safe.
+
+## Design philosophy
+
+- **Zero-config.** `~/.grr/config.toml` holds exactly one thing: an OAuth client ID (and optionally a secret). Scopes, redirect URI, pool sizes, timeouts, and retry policy are compile-time constants tuned for Google's frontends ([grr-core/src/client](grr-core/src/client/mod.rs)). `GRR_CONFIG_PATH` overrides the file location, `RUST_LOG` the log level (`GRR_OAUTH__*` env vars exist for headless overrides) — nothing else is configurable, on purpose.
+- **Namespaced services.** Mail is `grr gmail ...`; account-level concerns stay top-level (`grr auth`, `grr transport`, `grr schema`). Future services (`grr drive ...`, `grr calendar ...`) drop in without another breaking rename.
+- **stdout purity.** Logs go to stderr, results go to stdout, so `| jq` always works. `-f jsonl` streams arrays one object per line.
+- **Keyring-first token storage.** Tokens live in the OS keyring (Windows Credential Manager, macOS Keychain, Linux Secret Service via D-Bus), with automatic fallback to `<cache dir>/grr/token.json` on headless systems. A token found in the fallback file auto-imports into the keyring on first sight.
+- **Agent-first.** `grr schema` dumps the complete command tree as JSON with zero configuration — the machine-readable contract for AI agents, discoverable without touching a config file or scraping `--help`. One fast CLI replaces per-service MCP servers: no MCP setup, just `grr schema`.
+
+## Performance
+
+- **HTTP/3 (QUIC) by default** — prior-knowledge h3 with one authenticated probe at startup and silent HTTP/2 fallback; `grr transport` shows what was actually negotiated.
+- **Tokio multi-threaded runtime**, auto-sized to cores — no thread pool to tune.
+- **In-flight request valve** — a semaphore (not a thread pool) caps concurrent HTTP requests at 64, staying under Gmail's per-user rate limits so bursts don't self-DOS into 429s. 429s are retried honoring `Retry-After` (waits capped at 30s); whole-request timeout is 30s.
+- **Compression always on** — gzip, deflate, zstd, and brotli response decompression.
+- **Streaming uploads** — RFC 822 media upload streams 192 KiB chunks with incremental base64, so large attachments never sit fully in memory.
+- **io_uring file I/O** on Linux, behind a feature gate and detected at runtime.
+
+## Architecture
+
+Two crates:
+
+```
+grr/       the CLI: clap v4 command tree (one module per command group), output formats
+grr-core/  the library: OAuth (PKCE + device flow), keyring token store, HTTP client
+           (transport probe, retries, rate-limit valve), models, streaming upload, config
+```
+
+The CLI is a thin shell; everything Google-specific lives in `grr-core`. The library's default features build on **stable** Rust — only the CLI opts into the unstable HTTP/3 path.
 
 ## Development
 
-Workspace layout:
-
-```
-gmail-cli/            # the binary (clap v4, one file per command group)
-gmail-core/           # library: auth, client, models, streaming, config
-gmail-skill-bindings/ # NAPI bindings for Node.js integration (WIP, unpackaged)
-```
+Requires Rust **nightly**: [rust-toolchain.toml](rust-toolchain.toml) pins it, and the `grr` binary enables grr-core's `http3` feature, which needs the `--cfg reqwest_unstable` that [.cargo/config.toml](.cargo/config.toml) sets for you (plus `rustup component add rust-src` for the build-std config). `grr-core` alone builds on stable.
 
 ```sh
-cargo build -p gmail-cli            # dev build
-cargo test --workspace              # unit + integration tests
-cargo clippy --workspace --all-targets
-cargo run -p gmail-cli -- auth login
+cargo build --workspace
+cargo test --workspace --locked
+cargo clippy --workspace --all-targets -- -D warnings
+cargo run -p grr -- gmail profile
 ```
 
-Notes:
+- Tests never touch real credentials — token paths are injected, and wiremock/mockito serve the API endpoints.
+- `RUST_LOG=debug` traces requests; quinn's harmless IPv6 warnings are muted by default.
 
-- **Nightly is required** — the `http3` reqwest feature needs
-  `--cfg reqwest_unstable` (set for you in [`.cargo/config.toml`](./.cargo/config.toml)),
-  and the build-std config needs the `rust-src` component. First build takes
-  a few minutes; release profile uses fat LTO.
-- **Logs** — `RUST_LOG` controls verbosity (default `info`, with quinn's
-  harmless IPv6 warnings muted; try `RUST_LOG=debug` to trace HTTP/2 frames).
-- **Tests** never touch real credentials — token paths are injected, and
-  wiremock serves the API endpoints.
+## Packaging & status
 
-## Security notes
+| Channel | Install | Status |
+| --- | --- | --- |
+| GitHub Releases | 3-platform binaries (Windows x64, Linux x64, macOS ARM) built on `v*` tags | planned for 0.2.0 |
+| crates.io | `cargo install grr` | pending — the `grr` name on crates.io is currently held by an unrelated 2020 crate, so the published package name is TBD |
+| winget | `winget install debanjanbasu.grr` | pending |
+| Homebrew | `brew install debanjanbasu/tap/grr` (tap: [debanjanbasu/homebrew-grr](https://github.com/debanjanbasu/homebrew-grr)) | pending |
 
-- The OAuth token cache is plaintext JSON in your user cache dir; treat the
-  machine's disk security as the boundary.
-- `client_secret` is only sent when configured; it is never logged.
-- Never commit `config.toml` with real credentials — `.gitignore` covers it.
-
-## Roadmap
-
-- [ ] `--search` flag on `msg batch-label` / `batch-delete` (query-driven bulk ops)
-- [ ] NAPI skill bindings packaged for npm
-- [ ] crates.io publish of `gmail-core` (blocked: unstable `http3` feature)
-- [ ] OS keyring storage for tokens
+Publishing model: `v*` tags trigger the release workflow (3-platform binaries); crates.io will use trusted publishing (no tokens).
 
 ## License
 

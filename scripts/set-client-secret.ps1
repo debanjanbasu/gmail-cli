@@ -20,12 +20,12 @@
                                 $s = Read-Host -AsSecureString
                                 .\set-client-secret.ps1 -Secret $s
 
-  Programmatic alternative (no file edit at all): GMAIL_OAUTH__CLIENT_SECRET
+  Programmatic alternative (no file edit at all): GRR_OAUTH__CLIENT_SECRET
   env var takes priority over config.toml (see ConfigLoader).
 
 .EXAMPLE
   .\set-client-secret.ps1
-  # hidden prompt, updates ~/.gmail-opencode/config.toml
+  # hidden prompt, updates ~/.grr/config.toml
 
 .EXAMPLE
   .\set-client-secret.ps1 -EnvVarName MY_VAULT_SECRET
@@ -40,8 +40,8 @@
 param(
   [Parameter()]
   [string]$ConfigPath = $(
-    if ($env:GMAIL_CONFIG_PATH) { $env:GMAIL_CONFIG_PATH }
-    else { Join-Path $env:USERPROFILE '.gmail-opencode\config.toml' }
+    if ($env:GRR_CONFIG_PATH) { $env:GRR_CONFIG_PATH }
+    else { Join-Path $env:USERPROFILE '.grr\config.toml' }
   ),
 
   [Parameter(ParameterSetName = 'FromEnv', Mandatory = $true)]
@@ -93,7 +93,7 @@ try {
 
   Set-Content -LiteralPath $ConfigPath -Value $text
   "client_secret updated in $ConfigPath"
-  'Next: gmail auth login'
+  'Next: grr auth login'
 } finally {
   if ($bstr -ne [IntPtr]::Zero) {
     [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
@@ -102,3 +102,5 @@ try {
     Remove-Variable -Name $v -ErrorAction SilentlyContinue
   }
 }
+
+

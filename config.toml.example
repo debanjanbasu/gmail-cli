@@ -1,52 +1,19 @@
-# config.toml.example
-# Copy this file to ~/.gmail-opencode/config.toml and customize
-# Environment variables (GMAIL_*) take precedence over this file
+# grr configuration — the only file grr reads.
+#
+# Copy to ~/.grr/config.toml (Windows: %USERPROFILE%\.grr\config.toml)
+# and paste your OAuth client ID.
+#
+# Full Google Cloud walkthrough: docs/gcp-setup.md
+# GRR_CONFIG_PATH overrides the file location.
+# Both snake_case and kebab-case key spellings are accepted.
 
 [oauth]
-# Register the OAuth client as a Desktop app and put its client ID here.
+# Desktop-app OAuth client ID (ends in .apps.googleusercontent.com).
+# Create one at https://console.cloud.google.com/apis/credentials
+# (Create credentials -> OAuth client ID -> Application type: Desktop).
 client_id = ""
-# Optional: sent at the token endpoint only when present. Google mandates
-# it even for Desktop clients; PKCE-only providers need no secret at all.
+
+# Optional: Google shows a client secret next to the client ID even for
+# Desktop clients. Sent at the token endpoint only when present;
+# PKCE is always on. Leave commented out for PKCE-only providers.
 # client_secret = ""
-redirect_uri = "http://localhost:3434/oauth/callback"
-scopes = [
-    "https://www.googleapis.com/auth/gmail.readonly",
-    "https://www.googleapis.com/auth/gmail.compose",
-    "https://www.googleapis.com/auth/gmail.modify",
-    "https://www.googleapis.com/auth/gmail.labels",
-    "https://mail.google.com/"
-]
-use_pkce = true
-
-[performance]
-max_concurrent = 20
-connection_pool_size = 50
-request_timeout_secs = 30
-connect_timeout_secs = 5
-retry_attempts = 3
-retry_backoff_ms = 100
-enable_http3 = true
-enable_http2 = true
-enable_zstd = true
-enable_brotli = true
-tcp_keepalive_secs = 30
-http2_adaptive_window = true
-http2_keepalive_interval_secs = 30
-
-[output]
-default_format = "json"
-color = true
-pretty = false
-include_nulls = false
-
-[runtime]
-enable_metrics = false
-metrics_port = 9090
-enable_tracing = true
-log_level = "info"
-
-[cache]
-cache_dir = "~/.cache/gmail-opencode"
-enable_etag_cache = true
-max_cache_size_mb = 100
-cache_ttl_secs = 3600

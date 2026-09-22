@@ -43,3 +43,17 @@ jobs:
           components: rust-src
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --workspace --locked
+
+  # The release profile (fat LTO, panic=abort, build-std) differs enough from
+  # dev that it can break independently — build the grr binary once, on
+  # Windows, to catch release-only issues without slowing the test matrix.
+  release-build:
+    name: release build (windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release --locked -p grr

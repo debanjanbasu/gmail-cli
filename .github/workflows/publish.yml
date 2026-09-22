@@ -1,0 +1,61 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Publish to crates.io — TRUSTED PUBLISHING (OIDC-based, no token secret).
+# Cargo exchanges a short-lived token minted from this job's GitHub Actions
+# OIDC identity directly with crates.io; nothing is stored in the repo.
+#
+# ONE-TIME SETUP (crates.io UI, per crate): before the first run, for BOTH
+# grr-core and grr open the crate's settings page -> Trusted Publishing -> add
+# GitHub repository `debanjanbasu/grr-cli` with workflow `publish.yml`.
+# A run before this is configured is rejected by the registry (403).
+#
+# Toolchain: NIGHTLY for both crates. grr-core's default features are empty
+# (stable-compatible) so its verify build needs no unstable cfg, but the
+# workspace .cargo/config.toml uses [unstable] options (build-std,
+# profile-rustflags) that stable cargo refuses to load.
+#
+# The `reqwest_unstable` cfg required by grr's http3 verify build comes from
+# .cargo/config.toml's per-target rustflags — no RUSTFLAGS env is set here,
+# because a RUSTFLAGS env would replace (clobber) those config tables.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Publish
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    name: Publish grr-core then grr
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+
+      - uses: Swatinem/rust-cache@v2
+
+      # 1) Library first: default features are empty (stable-compatible), so
+      #    the pre-publish verify build compiles without http3 — no
+      #    --no-verify needed. grr (step 2) resolves this from crates.io.
+      - name: Publish grr-core
+        run: cargo publish -p grr-core --trusted-publishing
+
+      # 2) Bin crate: depends on grr-core with features=["http3"] (reqwest
+      #    unstable HTTP/3 -> nightly + reqwest_unstable cfg, both supplied by
+      #    .cargo/config.toml). Allowed to fail so a grr-only problem never
+      #    blocks the grr-core publish above.
+      #
+      #    KNOWN BLOCKER (verified via `cargo publish -p grr --dry-run`):
+      #    grr/Cargo.toml declares grr-core as a path dependency WITHOUT a
+      #    version ("all dependencies must have a version requirement
+      #    specified when publishing"). Add `version = "0.2.0"` to that
+      #    dependency before expecting this step to succeed.
+      - name: Publish grr
+        run: cargo publish -p grr --trusted-publishing
+        continue-on-error: true
