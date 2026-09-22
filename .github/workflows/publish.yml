@@ -51,11 +51,11 @@ jobs:
       #    .cargo/config.toml). Allowed to fail so a grr-only problem never
       #    blocks the grr-core publish above.
       #
-      #    KNOWN BLOCKER (verified via `cargo publish -p grr --dry-run`):
+      #    KNOWN BLOCKER (verified via `cargo publish -p grr-cli --dry-run`):
       #    grr/Cargo.toml declares grr-core as a path dependency WITHOUT a
       #    version ("all dependencies must have a version requirement
       #    specified when publishing"). Add `version = "0.2.0"` to that
       #    dependency before expecting this step to succeed.
       - name: Publish grr
-        run: cargo publish -p grr --trusted-publishing
+        run: cargo publish -p grr-cli --trusted-publishing
         continue-on-error: true

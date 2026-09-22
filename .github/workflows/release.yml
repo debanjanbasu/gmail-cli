@@ -36,7 +36,7 @@ jobs:
       # .cargo/config.toml injects --cfg reqwest_unstable (http3 is why we're
       # on nightly) for each of these host targets — no RUSTFLAGS needed.
       - name: Build release binary
-        run: cargo build --release --locked -p grr
+        run: cargo build --release --locked -p grr-cli
 
       - name: Archive (unix)
         if: runner.os != 'Windows'

@@ -498,7 +498,7 @@ fn decode_body_part(encoded: &str) -> Option<String> {
     // in the standard alphabet (with `/` and `+`). Normalize the alphabet
     // and re-pad before one canonical decode.
     let mut buf = encoded.replace('-', "+").replace('_', "/");
-    while buf.len() % 4 != 0 {
+    while !buf.len().is_multiple_of(4) {
         buf.push('=');
     }
     let bytes = base64::engine::general_purpose::STANDARD.decode(buf).ok()?;
