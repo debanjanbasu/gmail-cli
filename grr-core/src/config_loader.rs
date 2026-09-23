@@ -1,7 +1,7 @@
-//! Configuration loading with TOML file and environment variable support
+﻿//! Configuration loading with TOML file and environment variable support
 
-use crate::config::GmailConfig;
-use crate::error::{GmailError, Result};
+use crate::config::GrrConfig;
+use crate::error::{GrrError, Result};
 use dirs;
 use figment::{
     Figment, Provider,
@@ -21,7 +21,7 @@ impl ConfigLoader {
     /// 1. Environment variables (GRR_*)
     /// 2. TOML config file
     /// 3. Default values
-    pub async fn load() -> Result<GmailConfig> {
+    pub async fn load() -> Result<GrrConfig> {
         let config_path = Self::config_path()?;
 
         info!("Loading config from: {:?}", config_path);
@@ -30,9 +30,9 @@ impl ConfigLoader {
             .merge(Toml::file(&config_path))
             .merge(Self::env_provider());
 
-        let config: GmailConfig = figment
+        let config: GrrConfig = figment
             .extract()
-            .map_err(|e| GmailError::Config(e.to_string()))?;
+            .map_err(|e| GrrError::Config(e.to_string()))?;
 
         info!("Loaded config: client_id={}", config.oauth.client_id);
         match config.oauth.client_secret.as_deref() {
@@ -64,27 +64,15 @@ impl ConfigLoader {
     ///
     /// Checks in order:
     /// 1. GRR_CONFIG_PATH environment variable
-    /// 2. ~/.grr/config.toml (canonical)
-    /// 3. ~/.gmail-opencode/config.toml (legacy gmail-cli/gmail-opencode
-    ///    layouts, so upgrades never lose credentials)
+    /// 2. ~/.grr/config.toml (the only location — no legacy fallbacks)
     fn config_path() -> Result<PathBuf> {
         if let Ok(path) = std::env::var("GRR_CONFIG_PATH") {
             return Ok(PathBuf::from(path));
         }
 
         let home = dirs::home_dir()
-            .ok_or_else(|| GmailError::Config("Could not find home directory".into()))?;
+            .ok_or_else(|| GrrError::Config("Could not find home directory".into()))?;
 
-        let canonical = home.join(".grr").join("config.toml");
-        if canonical.exists() {
-            return Ok(canonical);
-        }
-
-        let legacy = home.join(".gmail-opencode").join("config.toml");
-        if legacy.exists() {
-            return Ok(legacy);
-        }
-
-        Ok(canonical)
+        Ok(home.join(".grr").join("config.toml"))
     }
 }

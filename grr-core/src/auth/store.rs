@@ -1,4 +1,4 @@
-//! Token persistence: OS keyring by default (Windows Credential Manager,
+﻿//! Token persistence: OS keyring by default (Windows Credential Manager,
 //! macOS Keychain, Linux Secret Service via D-Bus), with a plain platform
 //! file fallback for headless systems without a keyring daemon.
 //!
@@ -12,7 +12,7 @@ use std::path::PathBuf;
 
 use tracing::{debug, info, warn};
 
-use crate::error::{GmailError, Result};
+use crate::error::{GrrError, Result};
 
 use super::TokenStorage;
 
@@ -69,7 +69,7 @@ impl TokenStore {
                         .and_then(|entry| entry.get_password())
                 })
                 .await
-                .map_err(|e| GmailError::Internal(e.to_string()))?;
+                .map_err(|e| GrrError::Internal(e.to_string()))?;
                 match res {
                     Ok(secret) if !secret.trim().is_empty() => {
                         let storage: TokenStorage = serde_json::from_str(&secret)?;
@@ -118,7 +118,7 @@ impl TokenStore {
                         .and_then(|entry| entry.set_password(&secret_for_keyring))
                 })
                 .await
-                .map_err(|e| GmailError::Internal(e.to_string()))?;
+                .map_err(|e| GrrError::Internal(e.to_string()))?;
                 if let Err(e) = res {
                     warn!("keyring write failed ({e}); writing token to fallback file");
                     Self::write_fallback_file(&secret).await?;
@@ -143,7 +143,7 @@ impl TokenStore {
                         .and_then(|entry| entry.delete_credential())
                 })
                 .await
-                .map_err(|e| GmailError::Internal(e.to_string()))?;
+                .map_err(|e| GrrError::Internal(e.to_string()))?;
                 match res {
                     Ok(()) | Err(keyring::Error::NoEntry) => {}
                     Err(e) => warn!("keyring delete failed: {e}"),

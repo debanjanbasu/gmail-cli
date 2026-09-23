@@ -1105,8 +1105,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "grr-calendar"
+version = "0.3.0"
+dependencies = [
+ "grr-core",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "url",
+ "urlencoding",
+ "wiremock",
+]
+
+[[package]]
+name = "grr-chat"
+version = "0.3.0"
+dependencies = [
+ "grr-core",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "url",
+ "urlencoding",
+ "wiremock",
+]
+
+[[package]]
 name = "grr-cli"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -1115,7 +1145,13 @@ dependencies = [
  "comfy-table",
  "dirs",
  "futures",
+ "grr-calendar",
+ "grr-chat",
  "grr-core",
+ "grr-drive",
+ "grr-forms",
+ "grr-gmail",
+ "grr-people",
  "mime_guess",
  "predicates",
  "serde",
@@ -1128,7 +1164,7 @@ dependencies = [
 
 [[package]]
 name = "grr-core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "base64 0.23.1",
@@ -1154,6 +1190,79 @@ dependencies = [
  "tokio-uring",
  "tokio-util",
  "toml",
+ "tracing",
+ "url",
+ "urlencoding",
+ "wiremock",
+]
+
+[[package]]
+name = "grr-drive"
+version = "0.3.0"
+dependencies = [
+ "base64 0.23.1",
+ "futures",
+ "grr-core",
+ "mime_guess",
+ "rand 0.8.8",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "url",
+ "urlencoding",
+ "wiremock",
+]
+
+[[package]]
+name = "grr-forms"
+version = "0.3.0"
+dependencies = [
+ "grr-core",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "url",
+ "urlencoding",
+ "wiremock",
+]
+
+[[package]]
+name = "grr-gmail"
+version = "0.3.0"
+dependencies = [
+ "base64 0.23.1",
+ "bytes",
+ "dirs",
+ "futures",
+ "grr-core",
+ "mockito",
+ "rand 0.8.8",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tokio-test",
+ "tokio-util",
+ "tracing",
+ "url",
+ "wiremock",
+]
+
+[[package]]
+name = "grr-people"
+version = "0.3.0"
+dependencies = [
+ "grr-core",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
  "tracing",
  "url",
  "urlencoding",

@@ -1,0 +1,30 @@
+[package]
+name = "grr-people"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+authors = { workspace = true }
+repository = { workspace = true }
+description = "People (Contacts) API client for the grr suite: typed endpoints over the shared HTTP/3 core"
+categories = ["api-bindings", "network-programming"]
+keywords = ["google", "people", "contacts", "api", "http3"]
+
+[dependencies]
+grr-core = { path = "../grr-core", version = "0.3.0", features = ["http3"] }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+url = { workspace = true }
+tracing = { workspace = true }
+urlencoding = { workspace = true }
+
+[features]
+# Forward: the CLI enables HTTP/3 everywhere; library users may stay stable.
+http3 = ["grr-core/http3"]
+
+[dev-dependencies]
+wiremock = { workspace = true }
+tempfile = { workspace = true }
+
+# Intentionally not inheriting [workspace.lints] (pedantic/nursery deny).
+[lints]

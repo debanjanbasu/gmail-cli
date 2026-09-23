@@ -18,6 +18,11 @@ fn top_level_help_lists_namespaces() {
         .success()
         .stdout(predicate::str::contains("auth"))
         .stdout(predicate::str::contains("gmail"))
+        .stdout(predicate::str::contains("calendar"))
+        .stdout(predicate::str::contains("drive"))
+        .stdout(predicate::str::contains("contacts"))
+        .stdout(predicate::str::contains("chat"))
+        .stdout(predicate::str::contains("forms"))
         .stdout(predicate::str::contains("transport"))
         .stdout(predicate::str::contains("schema"));
 }
@@ -221,4 +226,88 @@ fn batch_label_ids_and_search_conflict() {
 #[test]
 fn bare_gmail_without_subcommand_shows_help() {
     grr().arg("gmail").assert().failure();
+}
+
+#[test]
+fn calendar_subcommands() {
+    grr()
+        .arg("calendar")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("list"))
+        .stdout(predicate::str::contains("events"))
+        .stdout(predicate::str::contains("get"))
+        .stdout(predicate::str::contains("create"))
+        .stdout(predicate::str::contains("update"))
+        .stdout(predicate::str::contains("delete"))
+        .stdout(predicate::str::contains("free-busy"));
+}
+
+#[test]
+fn drive_subcommands() {
+    grr()
+        .arg("drive")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("list"))
+        .stdout(predicate::str::contains("search"))
+        .stdout(predicate::str::contains("get"))
+        .stdout(predicate::str::contains("download"))
+        .stdout(predicate::str::contains("upload"))
+        .stdout(predicate::str::contains("rename"))
+        .stdout(predicate::str::contains("delete"))
+        .stdout(predicate::str::contains("quota"));
+}
+
+#[test]
+fn contacts_subcommands() {
+    grr()
+        .arg("contacts")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("list"))
+        .stdout(predicate::str::contains("search"))
+        .stdout(predicate::str::contains("create"))
+        .stdout(predicate::str::contains("update"))
+        .stdout(predicate::str::contains("delete"));
+}
+
+#[test]
+fn chat_subcommands() {
+    grr()
+        .arg("chat")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("spaces"))
+        .stdout(predicate::str::contains("messages"))
+        .stdout(predicate::str::contains("send"));
+}
+
+#[test]
+fn forms_subcommands() {
+    grr()
+        .arg("forms")
+        .arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("get"))
+        .stdout(predicate::str::contains("responses"));
+}
+
+#[test]
+fn schema_dumps_every_service() {
+    grr()
+        .arg("schema")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("gmail"))
+        .stdout(predicate::str::contains("calendar"))
+        .stdout(predicate::str::contains("drive"))
+        .stdout(predicate::str::contains("contacts"))
+        .stdout(predicate::str::contains("chat"))
+        .stdout(predicate::str::contains("forms"));
 }

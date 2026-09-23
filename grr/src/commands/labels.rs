@@ -1,9 +1,9 @@
-//! Label-related CLI commands
+﻿//! Label-related CLI commands
 
 use crate::output::{OutputFormat, print_output};
 use anyhow::Result;
 use clap::{Args, Subcommand};
-use grr_core::{CreateLabelOptions, GmailClient, LabelColor, UpdateLabelOptions};
+use grr_gmail::{CreateLabelOptions, GmailClient, LabelColor, UpdateLabelOptions};
 
 #[derive(Subcommand, Debug)]
 pub enum LabelCommands {

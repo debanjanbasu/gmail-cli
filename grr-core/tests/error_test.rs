@@ -1,4 +1,4 @@
-use grr_core::error::GmailError;
+﻿use grr_core::error::GrrError;
 use reqwest::StatusCode;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -26,7 +26,7 @@ async fn test_429_returns_rate_limited_with_retry_after() {
 
 #[tokio::test]
 async fn test_rate_limited_error_has_retry_after() {
-    let err = GmailError::RateLimited {
+    let err = GrrError::RateLimited {
         retry_after_secs: 30,
     };
     assert_eq!(err.to_string(), "Rate limited: retry after 30s");
@@ -36,7 +36,7 @@ async fn test_rate_limited_error_has_retry_after() {
 
 #[tokio::test]
 async fn test_5xx_errors_are_retryable() {
-    let err = GmailError::Api {
+    let err = GrrError::Api {
         status: 500,
         message: "Server error".into(),
     };

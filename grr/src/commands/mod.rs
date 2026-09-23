@@ -1,7 +1,12 @@
-//! CLI command modules
+﻿//! CLI command modules
 
 pub mod auth;
+pub mod calendar;
+pub mod chat;
+pub mod contacts;
 pub mod drafts;
+pub mod drive;
+pub mod forms;
 pub mod history;
 pub mod import;
 pub mod labels;

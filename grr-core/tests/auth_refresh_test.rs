@@ -1,4 +1,4 @@
-//! Offline regression tests for refresh-token failure handling.
+﻿//! Offline regression tests for refresh-token failure handling.
 //!
 //! Regression: a rejected refresh token (Google 400 `invalid_grant`) used to
 //! silently fall through into the implicit interactive OAuth flow, which binds
@@ -9,7 +9,7 @@
 
 use std::time::Duration;
 
-use grr_core::{GmailAuth, GmailConfig, GmailError, TokenStorage};
+use grr_core::{GoogleAuth, GrrConfig, GrrError, TokenStorage};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -36,8 +36,8 @@ async fn rejected_refresh_token_returns_auth_error_without_oauth_flow() {
         .mount_as_scoped(&server)
         .await;
 
-    let config = GmailConfig::default();
-    let auth = GmailAuth::with_token(config.oauth.clone(), expired_storage_with_refresh_token())
+    let config = GrrConfig::default();
+    let auth = GoogleAuth::with_token(config.oauth.clone(), expired_storage_with_refresh_token())
         .await
         .unwrap()
         .with_token_endpoint(format!("{}/token", server.uri()));
@@ -48,7 +48,7 @@ async fn rejected_refresh_token_returns_auth_error_without_oauth_flow() {
 
     let err = result.expect_err("a rejected refresh token must yield an error");
     assert!(
-        matches!(err, GmailError::Auth(_)),
+        matches!(err, GrrError::Auth(_)),
         "unexpected error: {err:?}"
     );
     let message = err.to_string();
@@ -82,8 +82,8 @@ async fn refresh_persists_to_overridden_token_path_only() {
     let dir = tempfile::tempdir().unwrap();
     let token_path = dir.path().join("nested").join("token.json");
 
-    let config = GmailConfig::default();
-    let auth = GmailAuth::with_token(config.oauth.clone(), expired_storage_with_refresh_token())
+    let config = GrrConfig::default();
+    let auth = GoogleAuth::with_token(config.oauth.clone(), expired_storage_with_refresh_token())
         .await
         .unwrap()
         .with_token_endpoint(format!("{}/token", server.uri()))
@@ -95,7 +95,7 @@ async fn refresh_persists_to_overridden_token_path_only() {
         .unwrap();
     assert_eq!(token, "fresh-access-token");
 
-    // The refreshed credential must land at the overridden path — never at
+    // The refreshed credential must land at the overridden path â€” never at
     // the user's real cache-dir token.json.
     let persisted = std::fs::read_to_string(&token_path).unwrap();
     assert!(
@@ -120,9 +120,9 @@ async fn refresh_response_without_refresh_token_preserves_stored_refresh_token()
         .mount(&server)
         .await;
 
-    let config = GmailConfig::default();
+    let config = GrrConfig::default();
     let dir = tempfile::tempdir().unwrap();
-    let auth = GmailAuth::with_token(config.oauth.clone(), expired_storage_with_refresh_token())
+    let auth = GoogleAuth::with_token(config.oauth.clone(), expired_storage_with_refresh_token())
         .await
         .unwrap()
         .with_token_endpoint(format!("{}/token", server.uri()))
@@ -164,9 +164,9 @@ async fn successful_refresh_still_updates_the_access_token() {
         .mount(&server)
         .await;
 
-    let config = GmailConfig::default();
+    let config = GrrConfig::default();
     let dir = tempfile::tempdir().unwrap();
-    let auth = GmailAuth::with_token(config.oauth.clone(), expired_storage_with_refresh_token())
+    let auth = GoogleAuth::with_token(config.oauth.clone(), expired_storage_with_refresh_token())
         .await
         .unwrap()
         .with_token_endpoint(format!("{}/token", server.uri()))

@@ -1,4 +1,4 @@
-//! Token type and in-memory expiry tracking.
+﻿//! Token type and in-memory expiry tracking.
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -37,7 +37,7 @@ impl TokenStorage {
     }
 }
 
-impl super::GmailAuth {
+impl super::GoogleAuth {
     /// Save token via the active store (OS keyring, file fallback).
     pub(crate) async fn save_token(&self, storage: &TokenStorage) -> Result<()> {
         self.store.save(storage).await?;

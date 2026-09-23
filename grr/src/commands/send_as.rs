@@ -1,9 +1,9 @@
-//! Send-as CLI commands
+﻿//! Send-as CLI commands
 
 use crate::output::{OutputFormat, print_output};
 use anyhow::Result;
 use clap::{Args, Subcommand};
-use grr_core::{CreateSendAsOptions, GmailClient, UpdateSendAsOptions};
+use grr_gmail::{CreateSendAsOptions, GmailClient, UpdateSendAsOptions};
 
 #[derive(Subcommand, Debug)]
 pub enum SendAsCommands {

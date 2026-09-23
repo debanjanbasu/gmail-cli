@@ -11,7 +11,7 @@ use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 
 use crate::config::OAuthConfig;
-use crate::error::{GmailError, Result};
+use crate::error::{GrrError, Result};
 
 mod device;
 mod oauth;
@@ -26,17 +26,30 @@ use store::TokenStore;
 
 const GOOGLE_TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 
-/// Loopback redirect for the native-app flow (RFC 8252 §7.3).
+/// Loopback redirect for the native-app flow (RFC 8252 Â§7.3).
 pub(crate) const REDIRECT_URI: &str = "http://localhost:3434/oauth/callback";
 
 /// Full Gmail access. Least-privilege scope selection is deliberately not
 /// implemented; one credential, everything works, nothing to configure.
 pub(crate) const SCOPES: &[&str] = &[
+    // Gmail
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/gmail.compose",
     "https://www.googleapis.com/auth/gmail.modify",
     "https://www.googleapis.com/auth/gmail.labels",
     "https://mail.google.com/",
+    // Calendar
+    "https://www.googleapis.com/auth/calendar",
+    // Drive
+    "https://www.googleapis.com/auth/drive",
+    // People (contacts)
+    "https://www.googleapis.com/auth/contacts",
+    // Chat
+    "https://www.googleapis.com/auth/chat.messages",
+    "https://www.googleapis.com/auth/chat.spaces",
+    // Forms
+    "https://www.googleapis.com/auth/forms.body",
+    "https://www.googleapis.com/auth/forms.responses.readonly",
 ];
 
 pub(crate) fn scopes_joined() -> String {
@@ -44,7 +57,7 @@ pub(crate) fn scopes_joined() -> String {
 }
 
 /// OAuth2 client with PKCE support
-pub struct GmailAuth {
+pub struct GoogleAuth {
     config: OAuthConfig,
     http_client: HttpClient,
     token_storage: Arc<RwLock<Option<TokenStorage>>>,
@@ -52,13 +65,13 @@ pub struct GmailAuth {
     token_endpoint: String,
 }
 
-impl GmailAuth {
-    /// Create new GmailAuth from config
+impl GoogleAuth {
+    /// Create new GoogleAuth from config
     pub async fn new(config: OAuthConfig) -> Result<Self> {
         let http_client = HttpClient::builder()
             .timeout(Duration::from_secs(30))
             .build()
-            .map_err(|e| GmailError::Config(format!("Failed to create HTTP client: {}", e)))?;
+            .map_err(|e| GrrError::Config(format!("Failed to create HTTP client: {}", e)))?;
 
         let store = TokenStore::auto();
         let token_storage = store.load().await?;
@@ -121,7 +134,7 @@ impl GmailAuth {
             // trigger the implicit browser flow: `run_oauth_flow` binds port
             // 3434 mid-API-call and wedges callers for the callback timeout.
             let Some(refresh_token) = storage.refresh_token.clone() else {
-                return Err(GmailError::Auth(
+                return Err(GrrError::Auth(
                     anyhow!(
                         "stored token is expired and has no refresh token; rerun `grr auth login`"
                     )
@@ -140,7 +153,7 @@ impl GmailAuth {
                     warn!("Token refresh failed: {}", e);
                     // Keep the expired storage in place: clearing it would
                     // route subsequent callers into the implicit OAuth flow.
-                    return Err(GmailError::Auth(
+                    return Err(GrrError::Auth(
                         anyhow!("{e}; rerun `grr auth login`").into(),
                     ));
                 }
@@ -178,16 +191,16 @@ impl GmailAuth {
             .form(&form)
             .send()
             .await
-            .map_err(GmailError::Http)?;
+            .map_err(GrrError::Http)?;
 
         let status = response.status();
-        let body_text = response.text().await.map_err(GmailError::Http)?;
+        let body_text = response.text().await.map_err(GrrError::Http)?;
 
         if !status.is_success() {
             // Google reports rejection reasons (e.g. invalid_grant) in the
             // response body; surface them instead of a generic parse failure.
             let body: serde_json::Value = serde_json::from_str(&body_text).map_err(|e| {
-                GmailError::Auth(
+                GrrError::Auth(
                     anyhow!("token endpoint returned {}: unparseable body ({e})", status).into(),
                 )
             })?;
@@ -201,20 +214,18 @@ impl GmailAuth {
             } else {
                 format!("{reason}: {description}")
             };
-            return Err(GmailError::Auth(
+            return Err(GrrError::Auth(
                 anyhow!("token endpoint returned {}: {}", status, detail).into(),
             ));
         }
 
         let token_data: serde_json::Value = serde_json::from_str(&body_text).map_err(|e| {
-            GmailError::Auth(
-                anyhow!("token endpoint returned unparseable success body ({e})").into(),
-            )
+            GrrError::Auth(anyhow!("token endpoint returned unparseable success body ({e})").into())
         })?;
 
         let access_token = token_data["access_token"]
             .as_str()
-            .ok_or_else(|| GmailError::Auth(anyhow!("No access token in response").into()))?
+            .ok_or_else(|| GrrError::Auth(anyhow!("No access token in response").into()))?
             .to_string();
 
         let expires_in = token_data["expires_in"].as_u64().unwrap_or(3600);
@@ -274,8 +285,8 @@ impl AuthConfigBuilder {
         self
     }
 
-    pub async fn build(self) -> Result<GmailAuth> {
-        GmailAuth::new(self.config).await
+    pub async fn build(self) -> Result<GoogleAuth> {
+        GoogleAuth::new(self.config).await
     }
 }
 

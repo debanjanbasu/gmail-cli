@@ -1,8 +1,8 @@
-//! Thread operations CLI commands
+﻿//! Thread operations CLI commands
 
 use anyhow::Result;
 use clap::{Args, Subcommand};
-use grr_core::GmailClient;
+use grr_gmail::GmailClient;
 
 #[derive(Subcommand, Debug)]
 pub enum ThreadCommands {

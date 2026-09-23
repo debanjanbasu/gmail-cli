@@ -3,7 +3,7 @@
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum GmailError {
+pub enum GrrError {
     #[error("Authentication error: {0}")]
     Auth(Box<dyn std::error::Error + Send + Sync>),
 
@@ -74,30 +74,28 @@ pub enum GmailError {
     Anyhow(#[from] anyhow::Error),
 }
 
-impl GmailError {
+impl GrrError {
     /// Check if error is retryable
     pub fn is_retryable(&self) -> bool {
         matches!(
             self,
-            GmailError::Http(e) if e.is_timeout() || e.is_connect() || e.is_request()
-        ) || matches!(
-            self,
-            GmailError::RateLimited { .. } | GmailError::Timeout(_)
-        ) || matches!(
-            self,
-            GmailError::Api { status, .. } if *status >= 500 || *status == 429
-        )
+            GrrError::Http(e) if e.is_timeout() || e.is_connect() || e.is_request()
+        ) || matches!(self, GrrError::RateLimited { .. } | GrrError::Timeout(_))
+            || matches!(
+                self,
+                GrrError::Api { status, .. } if *status >= 500 || *status == 429
+            )
     }
 
     /// Get HTTP status code if available
     pub fn status_code(&self) -> Option<u16> {
         match self {
-            GmailError::Api { status, .. } => Some(*status),
-            GmailError::Http(e) => e.status().map(|s| s.as_u16()),
-            GmailError::RateLimited { .. } => Some(429),
+            GrrError::Api { status, .. } => Some(*status),
+            GrrError::Http(e) => e.status().map(|s| s.as_u16()),
+            GrrError::RateLimited { .. } => Some(429),
             _ => None,
         }
     }
 }
 
-pub type Result<T> = std::result::Result<T, GmailError>;
+pub type Result<T> = std::result::Result<T, GrrError>;

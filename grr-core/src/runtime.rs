@@ -1,4 +1,4 @@
-//! Runtime feature detection
+﻿//! Runtime feature detection
 
 use std::sync::OnceLock;
 
@@ -107,7 +107,7 @@ mod tests {
     /// Regression guard: io_uring must never be reported as available unless
     /// the `io_uring` feature is compiled in on Linux. On Linux default
     /// builds (feature off) the old ungated kernel probe could report `true`
-    /// while fs_io silently used the tokio fallback — a false acceleration
+    /// while fs_io silently used the tokio fallback â€” a false acceleration
     /// claim surfaced by `gmail transport`.
     #[test]
     fn io_uring_report_matches_compile_time_feature_gate() {

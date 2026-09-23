@@ -1,4 +1,4 @@
-//! File I/O with io_uring acceleration on Linux, tokio fallback elsewhere.
+﻿//! File I/O with io_uring acceleration on Linux, tokio fallback elsewhere.
 
 use std::path::Path;
 
@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use bytes::{BufMut, BytesMut};
 
 #[cfg(all(target_os = "linux", feature = "io_uring"))]
-use crate::error::GmailError;
+use crate::error::GrrError;
 
 /// Write `data` to `path`, creating parent directories.
 ///
@@ -56,7 +56,7 @@ async fn ring_write(path: PathBuf, data: Bytes) -> Result<()> {
                 let (res, buf) = file.write_at(pending, offset).await;
                 let n = res?;
                 if n == 0 {
-                    return Err(GmailError::Internal(format!(
+                    return Err(GrrError::Internal(format!(
                         "io_uring write made no progress at offset {offset}"
                     )));
                 }
@@ -68,7 +68,7 @@ async fn ring_write(path: PathBuf, data: Bytes) -> Result<()> {
         })
     })
     .await
-    .map_err(|e| GmailError::Internal(e.to_string()))?
+    .map_err(|e| GrrError::Internal(e.to_string()))?
 }
 
 #[cfg(all(target_os = "linux", feature = "io_uring"))]
@@ -85,13 +85,13 @@ async fn ring_read(path: PathBuf) -> Result<Bytes> {
             // returning truncated bytes would corrupt callers. Fail loudly
             // so the caller can fall back to a consistent read.
             if n != len {
-                return Err(GmailError::Internal(format!(
+                return Err(GrrError::Internal(format!(
                     "io_uring short read on {path:?}: got {n} of {len} bytes"
                 )));
             }
-            Ok::<_, GmailError>(buf.slice(..n))
+            Ok::<_, GrrError>(buf.slice(..n))
         })
     })
     .await
-    .map_err(|e| GmailError::Internal(e.to_string()))?
+    .map_err(|e| GrrError::Internal(e.to_string()))?
 }

@@ -1,16 +1,16 @@
-//! Configuration types for grr-core.
+﻿//! Configuration types for grr-core.
 //!
 //! Zero-config by design: the only thing a user must supply is OAuth
 //! credentials. Every performance knob (concurrency, pooling, timeouts,
 //! compression, transport) is auto-tuned at runtime from machine
-//! capabilities — see [`crate::client`].
+//! capabilities â€” see [`crate::client`].
 
 use serde::{Deserialize, Serialize};
 
 /// Main configuration for the client
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
-pub struct GmailConfig {
+pub struct GrrConfig {
     #[serde(default)]
     pub oauth: OAuthConfig,
 }
@@ -19,7 +19,7 @@ pub struct GmailConfig {
 ///
 /// Accepts both kebab-case (Rust-native) and snake_case (TypeScript-era
 /// `config.toml` migration) key spellings. Redirect URI and scopes are
-/// compile-time constants — there is nothing to tune here on purpose.
+/// compile-time constants â€” there is nothing to tune here on purpose.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 #[derive(Default)]
@@ -52,8 +52,8 @@ client_secret = "secret-456"
 "#;
         let config = Figment::new()
             .merge(Toml::string(toml))
-            .extract::<GmailConfig>()
-            .unwrap_or_else(|_| GmailConfig::default());
+            .extract::<GrrConfig>()
+            .unwrap_or_else(|_| GrrConfig::default());
         assert_eq!(config.oauth.client_id, "id-123");
         assert_eq!(config.oauth.client_secret.as_deref(), Some("secret-456"));
     }
@@ -67,8 +67,8 @@ client-secret = "secret-456"
 "#;
         let config = Figment::new()
             .merge(Toml::string(toml))
-            .extract::<GmailConfig>()
-            .unwrap_or_else(|_| GmailConfig::default());
+            .extract::<GrrConfig>()
+            .unwrap_or_else(|_| GrrConfig::default());
         assert_eq!(config.oauth.client_id, "id-123");
     }
 
@@ -86,8 +86,8 @@ cache-dir = "/tmp/x"
 "#;
         let config = Figment::new()
             .merge(Toml::string(toml))
-            .extract::<GmailConfig>()
-            .unwrap_or_else(|_| GmailConfig::default());
+            .extract::<GrrConfig>()
+            .unwrap_or_else(|_| GrrConfig::default());
         assert_eq!(config.oauth.client_id, "id-123");
     }
 }

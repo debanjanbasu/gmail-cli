@@ -1,4 +1,4 @@
-//! Output formatting for CLI commands
+﻿//! Output formatting for CLI commands
 
 use clap::ValueEnum;
 use comfy_table::{Attribute, Cell, Color, ContentArrangement, Table};

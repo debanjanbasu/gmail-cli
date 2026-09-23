@@ -2,12 +2,18 @@
 resolver = "2"
 members = [
     "grr-core",
+    "grr-gmail",
+    "grr-calendar",
+    "grr-drive",
+    "grr-people",
+    "grr-chat",
+    "grr-forms",
     "grr",
 ]
 exclude = ["target/**", ".cargo/**", "*.md"]
 
 [workspace.package]
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 license = "MIT"
 authors = ["Debanjan Basu <debanjanbasu2006@gmail.com>"]
@@ -106,5 +112,7 @@ future_not_send = { level = "allow" }
 large_futures = { level = "allow" }
 volatile_composites = { level = "allow" }
 multiple_crate_versions = { level = "allow" }
+
+
 
 

@@ -1,4 +1,4 @@
-//! OAuth authorization flow with PKCE (RFC 7636), always on.
+﻿//! OAuth authorization flow with PKCE (RFC 7636), always on.
 
 use base64::Engine;
 use rand::RngCore;
@@ -7,11 +7,11 @@ use tracing::info;
 use tracing::warn;
 use urlencoding;
 
-use crate::error::{GmailError, Result};
+use crate::error::{GrrError, Result};
 
 use super::{REDIRECT_URI, SCOPES, TokenStorage};
 
-impl super::GmailAuth {
+impl super::GoogleAuth {
     /// Run full OAuth2 flow with PKCE
     pub(crate) async fn run_oauth_flow(&self) -> Result<TokenStorage> {
         // PKCE is unconditional: the verifier is the client identity proof.
@@ -69,18 +69,18 @@ impl super::GmailAuth {
             .form(&form)
             .send()
             .await
-            .map_err(GmailError::Http)?;
+            .map_err(GrrError::Http)?;
 
         let status = response.status();
-        let body_text = response.text().await.map_err(GmailError::Http)?;
+        let body_text = response.text().await.map_err(GrrError::Http)?;
         let token_data: serde_json::Value = serde_json::from_str(&body_text).map_err(|e| {
-            GmailError::Auth(
+            GrrError::Auth(
                 anyhow::anyhow!("token endpoint returned {status}: unparseable body ({e})").into(),
             )
         })?;
 
         if !status.is_success() {
-            return Err(GmailError::Auth(
+            return Err(GrrError::Auth(
                 anyhow::anyhow!(
                     "token endpoint returned {status}: {}",
                     super::device::error_detail(&token_data)

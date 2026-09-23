@@ -1,9 +1,9 @@
-//! Import CLI commands
+﻿//! Import CLI commands
 
 use crate::output::{OutputFormat, print_output};
 use anyhow::Result;
 use clap::Args;
-use grr_core::GmailClient;
+use grr_gmail::GmailClient;
 use std::path::Path;
 use tokio_util::io::ReaderStream;
 

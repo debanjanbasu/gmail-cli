@@ -1,11 +1,12 @@
-//! Message-related CLI commands
+﻿//! Message-related CLI commands
 
 use crate::output::{OutputFormat, print_output};
 use anyhow::Result;
 use base64::Engine;
 use clap::{Args, Subcommand};
 use futures::future::join_all;
-use grr_core::{GmailClient, GmailError, extract_body};
+use grr_core::error::GrrError;
+use grr_gmail::{GmailClient, extract_body};
 
 #[derive(Subcommand, Debug)]
 pub enum MessageCommands {
@@ -119,7 +120,7 @@ fn truncate_body(body: &str, max_length: usize) -> String {
 }
 
 /// Body of a message as JSON (null when absent), truncated to max_length.
-fn body_json(msg: &grr_core::Message, max_length: usize) -> serde_json::Value {
+fn body_json(msg: &grr_gmail::Message, max_length: usize) -> serde_json::Value {
     match extract_body(msg) {
         Some(text) => serde_json::json!(truncate_body(&text, max_length)),
         None => serde_json::Value::Null,
@@ -170,7 +171,7 @@ pub async fn handle_message_cmd(client: &GmailClient, cmd: MessageCommands) -> R
             }))
             .await
             .into_iter()
-            .collect::<Result<Vec<_>, GmailError>>()?;
+            .collect::<Result<Vec<_>, GrrError>>()?;
             let out: Vec<serde_json::Value> = messages
                 .iter()
                 .map(|msg| {

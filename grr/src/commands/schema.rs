@@ -1,4 +1,4 @@
-//! `grr schema`: dump the command tree as JSON.
+﻿//! `grr schema`: dump the command tree as JSON.
 //!
 //! The binary is its own contract (inspired by gogcli's "discover the
 //! contract"): agents and docs generators read this instead of scraping

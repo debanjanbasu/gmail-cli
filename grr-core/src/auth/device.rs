@@ -10,7 +10,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::anyhow;
 
-use crate::error::{GmailError, Result};
+use crate::error::{GrrError, Result};
 
 use super::TokenStorage;
 
@@ -18,7 +18,7 @@ const DEVICE_CODE_URL: &str = "https://oauth2.googleapis.com/device/code";
 const DEVICE_GRANT: &str = "urn:ietf:params:oauth:grant-type:device_code";
 
 /// Pending device authorization: show `verification_url` + `user_code` to
-/// the user, then poll with [`GmailAuth::poll_device_code`] until done.
+/// the user, then poll with [`GoogleAuth::poll_device_code`] until done.
 pub struct DeviceAuthChallenge {
     /// URL the user must open (e.g. <https://www.google.com/device>).
     pub verification_url: String,
@@ -41,7 +41,7 @@ impl DeviceAuthChallenge {
     }
 }
 
-impl super::GmailAuth {
+impl super::GoogleAuth {
     /// Start a device flow: returns the challenge to display to the user.
     pub async fn request_device_code(&self) -> Result<DeviceAuthChallenge> {
         let mut form = vec![
@@ -58,34 +58,34 @@ impl super::GmailAuth {
             .form(&form)
             .send()
             .await
-            .map_err(GmailError::Http)?;
+            .map_err(GrrError::Http)?;
 
         let status = response.status();
-        let body_text = response.text().await.map_err(GmailError::Http)?;
+        let body_text = response.text().await.map_err(GrrError::Http)?;
         let body: serde_json::Value = serde_json::from_str(&body_text).map_err(|e| {
-            GmailError::Auth(
+            GrrError::Auth(
                 anyhow!("device endpoint returned {status}: unparseable body ({e})").into(),
             )
         })?;
 
         if !status.is_success() {
-            return Err(GmailError::Auth(
+            return Err(GrrError::Auth(
                 anyhow!("device endpoint returned {status}: {}", error_detail(&body)).into(),
             ));
         }
 
-        let device_code = body["device_code"].as_str().ok_or_else(|| {
-            GmailError::Auth(anyhow!("device endpoint omitted device_code").into())
-        })?;
+        let device_code = body["device_code"]
+            .as_str()
+            .ok_or_else(|| GrrError::Auth(anyhow!("device endpoint omitted device_code").into()))?;
         let user_code = body["user_code"]
             .as_str()
-            .ok_or_else(|| GmailError::Auth(anyhow!("device endpoint omitted user_code").into()))?;
+            .ok_or_else(|| GrrError::Auth(anyhow!("device endpoint omitted user_code").into()))?;
         let verification_url = body
             .get("verification_url")
             .or_else(|| body.get("verification_uri"))
             .and_then(serde_json::Value::as_str)
             .ok_or_else(|| {
-                GmailError::Auth(anyhow!("device endpoint omitted verification_url").into())
+                GrrError::Auth(anyhow!("device endpoint omitted verification_url").into())
             })?;
 
         let expires_in = body["expires_in"].as_u64().unwrap_or(1800);
@@ -126,13 +126,13 @@ impl super::GmailAuth {
             .form(&form)
             .send()
             .await
-            .map_err(GmailError::Http)?;
+            .map_err(GrrError::Http)?;
 
         // Device polling reports status via 400 + JSON error codes, so the
         // body is parsed before looking at the HTTP status.
-        let body_text = response.text().await.map_err(GmailError::Http)?;
+        let body_text = response.text().await.map_err(GrrError::Http)?;
         let body: serde_json::Value = serde_json::from_str(&body_text).map_err(|e| {
-            GmailError::Auth(anyhow!("token endpoint returned unparseable body ({e})").into())
+            GrrError::Auth(anyhow!("token endpoint returned unparseable body ({e})").into())
         })?;
 
         if let Some(code) = body["error"].as_str() {
@@ -143,7 +143,7 @@ impl super::GmailAuth {
                     return Ok(None);
                 }
                 _ => {
-                    return Err(GmailError::Auth(
+                    return Err(GrrError::Auth(
                         anyhow!("device poll failed: {}", error_detail(&body)).into(),
                     ));
                 }
@@ -176,7 +176,7 @@ pub(crate) fn token_storage_from_response(
 ) -> Result<TokenStorage> {
     let access_token = token_data["access_token"]
         .as_str()
-        .ok_or_else(|| GmailError::Auth(anyhow!("No access token in response").into()))?
+        .ok_or_else(|| GrrError::Auth(anyhow!("No access token in response").into()))?
         .to_string();
 
     let expires_in = token_data["expires_in"].as_u64().unwrap_or(3600);

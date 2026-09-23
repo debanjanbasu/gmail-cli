@@ -44,17 +44,18 @@ gcloud config set project YOUR_PROJECT_ID
 
 A personal project on the free tier comfortably covers Gmail API usage for your own mailbox.
 
-## 4. Enable the Gmail API
+## 4. Enable the APIs
+
+Gmail is required; enable the rest as you need them (Calendar, Drive, Contacts, Chat, Forms are all live `grr` services):
 
 ```sh
 gcloud services enable gmail.googleapis.com
-```
 
-When more `grr` services ship, enable them the same way:
-
-```sh
+# all the other grr services at once:
 gcloud services enable calendar-json.googleapis.com drive.googleapis.com people.googleapis.com chat.googleapis.com forms.googleapis.com
 ```
+
+Or run [scripts/setup-gcp.ps1](../scripts/setup-gcp.ps1) / [scripts/setup-gcp.sh](../scripts/setup-gcp.sh) with `-AllServices` / `--all-services` to do this automatically.
 
 Note: Google Keep has no public API, so it will never appear as a `grr` service.
 

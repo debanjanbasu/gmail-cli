@@ -1,9 +1,9 @@
-//! Watch (push notifications) CLI commands
+﻿//! Watch (push notifications) CLI commands
 
 use crate::output::{OutputFormat, print_output};
 use anyhow::Result;
 use clap::{Args, Subcommand};
-use grr_core::GmailClient;
+use grr_gmail::GmailClient;
 
 #[derive(Subcommand, Debug)]
 pub enum WatchCommands {

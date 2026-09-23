@@ -2,13 +2,14 @@
 //!
 //! Reports the HTTP version negotiated during client construction, the
 //! HTTP/3 request/effective/fallback flags, and detected runtime features.
-//! Everything shown is auto-tuned — there is no user-facing transport
+//! Everything shown is auto-tuned â€” there is no user-facing transport
 //! configuration, this command exists to prove it.
 
 use anyhow::Result;
 use clap::Args;
-use grr_core::client::TransportInfo;
-use grr_core::{GmailClient, RuntimeFeatures};
+use grr_core::RuntimeFeatures;
+use grr_core::http::TransportInfo;
+use grr_gmail::GmailClient;
 
 #[derive(Args, Debug)]
 pub struct TransportArgs {}

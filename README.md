@@ -31,12 +31,12 @@ git clone https://github.com/debanjanbasu/grr-cli
 cargo install --path grr --locked
 ```
 
-**Package managers** (pending first release):
+**Package managers**:
 
 ```sh
-cargo install grr            # crates.io
-winget install debanjanbasu.grr
-brew install debanjanbasu/tap/grr
+winget install debanjanbasu.grr       # Windows (submitted)
+brew install debanjanbasu/tap/grr     # macOS (Linux) tap: debanjanbasu/homebrew-grr
+cargo install grr-cli                 # crates.io (pending; binary installs as `grr`)
 ```
 
 See [Packaging & status](#packaging--status) for details.
@@ -46,7 +46,7 @@ See [Packaging & status](#packaging--status) for details.
 1. **One-time Google Cloud setup** (~5 min): create a Desktop OAuth client and copy its client ID.
    Follow [docs/gcp-setup.md](docs/gcp-setup.md), or run [scripts/setup-gcp.ps1](scripts/setup-gcp.ps1) (Windows) / [scripts/setup-gcp.sh](scripts/setup-gcp.sh) (macOS/Linux) — they automate the gcloud parts and print the console links for the browser steps.
 
-2. **Configure** — `~/.grr/config.toml` (Windows: `%USERPROFILE%\.grr\config.toml`; a legacy `~/.gmail-opencode/config.toml` is still read):
+2. **Configure** — `~/.grr/config.toml` (Windows: `%USERPROFILE%\.grr\config.toml`):
 
    ```toml
    [oauth]
@@ -101,6 +101,11 @@ grr gmail message search "in:inbox" --max 1 | jq -r '.[0].id'
 | `grr gmail profile` | mailbox profile |
 | `grr gmail watch` | `start <topic> [--label-ids]`, `stop` (push notifications) |
 | `grr gmail import` | `import <rfc822-file> [--deleted]` |
+| `grr calendar` | `list` (calendars), `events [cal] [--time-min] [--time-max] [--query] [--max]`, `get <cal> <id>`, `create <cal> --summary --start --end [--location] [--attendees]`, `update <cal> <id> ...`, `delete <cal> <id>`, `free-busy --calendars a,b --time-min --time-max` |
+| `grr drive` | `list [--query] [--max]`, `search --query <q>`, `get <id>`, `download <id> -o FILE`, `upload <file> [--name] [--parent]`, `rename <id> <name>`, `delete <id>`, `quota` |
+| `grr contacts` | `list [--query-name]`, `search <query>`, `get <people/123>`, `create --given-name --family-name [--email] [--phone]`, `update`, `delete` |
+| `grr chat` | `spaces [--max]`, `space <id>`, `messages <space> [--max]`, `send <space> --text "..."` |
+| `grr forms` | `get <form-id>`, `responses <form-id> [--max]` |
 | `grr transport` | negotiated HTTP version + runtime features |
 | `grr schema` | the full command tree as JSON |
 
@@ -113,7 +118,7 @@ Details worth knowing:
 ## Design philosophy
 
 - **Zero-config.** `~/.grr/config.toml` holds exactly one thing: an OAuth client ID (and optionally a secret). Scopes, redirect URI, pool sizes, timeouts, and retry policy are compile-time constants tuned for Google's frontends ([grr-core/src/client](grr-core/src/client/mod.rs)). `GRR_CONFIG_PATH` overrides the file location, `RUST_LOG` the log level (`GRR_OAUTH__*` env vars exist for headless overrides) — nothing else is configurable, on purpose.
-- **Namespaced services.** Mail is `grr gmail ...`; account-level concerns stay top-level (`grr auth`, `grr transport`, `grr schema`). Future services (`grr drive ...`, `grr calendar ...`) drop in without another breaking rename.
+- **Namespaced services.** Mail is `grr gmail ...`; Calendar, Drive, Contacts, Chat, and Forms live alongside it (`grr calendar ...`, `grr drive ...`, ...), and account-level concerns stay top-level (`grr auth`, `grr transport`, `grr schema`). One login covers every service; each service client builds lazily so running one never probes another's endpoints. (Keep has no public API.)
 - **stdout purity.** Logs go to stderr, results go to stdout, so `| jq` always works. `-f jsonl` streams arrays one object per line.
 - **Keyring-first token storage.** Tokens live in the OS keyring (Windows Credential Manager, macOS Keychain, Linux Secret Service via D-Bus), with automatic fallback to `<cache dir>/grr/token.json` on headless systems. A token found in the fallback file auto-imports into the keyring on first sight.
 - **Agent-first.** `grr schema` dumps the complete command tree as JSON with zero configuration — the machine-readable contract for AI agents, discoverable without touching a config file or scraping `--help`. One fast CLI replaces per-service MCP servers: no MCP setup, just `grr schema`.
@@ -129,25 +134,30 @@ Details worth knowing:
 
 ## Architecture
 
-Two crates:
+One binary, layered crates — a service client per crate, all on one shared core:
 
 ```
-grr/       the CLI: clap v4 command tree (one module per command group), output formats
-grr-core/  the library: OAuth (PKCE + device flow), keyring token store, HTTP client
-           (transport probe, retries, rate-limit valve), models, streaming upload, config
+grr/          the CLI: clap v4 command tree (one module per command group),
+              output formats, lazy per-service dispatch
+grr-core/     the shared base: OAuth (PKCE + device flow), keyring token
+              store, HttpCore (transport probe, retries, rate-limit valve),
+              config, runtime probes
+grr-gmail/    Gmail: messages, labels, drafts, threads, history, settings,
+              watch, streaming upload
+grr-calendar/ grr-drive/  grr-people/  grr-chat/  grr-forms/
 ```
 
-The CLI is a thin shell; everything Google-specific lives in `grr-core`. The library's default features build on **stable** Rust — only the CLI opts into the unstable HTTP/3 path.
+The CLI is a thin shell; each service crate adds typed endpoints over `grr-core`'s `HttpCore`. The core's default features build on **stable** Rust — only the CLI (and service crates) opt into the unstable HTTP/3 path.
 
 ## Development
 
-Requires Rust **nightly**: [rust-toolchain.toml](rust-toolchain.toml) pins it, and the `grr` binary enables grr-core's `http3` feature, which needs the `--cfg reqwest_unstable` that [.cargo/config.toml](.cargo/config.toml) sets for you (plus `rustup component add rust-src` for the build-std config). `grr-core` alone builds on stable.
+Requires Rust **nightly**: [rust-toolchain.toml](rust-toolchain.toml) pins it, and the `grr` binary enables the `http3` features, which need the `--cfg reqwest_unstable` that [.cargo/config.toml](.cargo/config.toml) sets for you (plus `rustup component add rust-src` for the build-std config). `grr-core` alone builds on stable.
 
 ```sh
 cargo build --workspace
 cargo test --workspace --locked
 cargo clippy --workspace --all-targets -- -D warnings
-cargo run -p grr -- gmail profile
+cargo run -p grr-cli -- gmail profile
 ```
 
 - Tests never touch real credentials — token paths are injected, and wiremock/mockito serve the API endpoints.
@@ -157,10 +167,10 @@ cargo run -p grr -- gmail profile
 
 | Channel | Install | Status |
 | --- | --- | --- |
-| GitHub Releases | 3-platform binaries (Windows x64, Linux x64, macOS ARM) built on `v*` tags | planned for 0.2.0 |
-| crates.io | `cargo install grr` | pending — the `grr` name on crates.io is currently held by an unrelated 2020 crate, so the published package name is TBD |
-| winget | `winget install debanjanbasu.grr` | pending |
-| Homebrew | `brew install debanjanbasu/tap/grr` (tap: [debanjanbasu/homebrew-grr](https://github.com/debanjanbasu/homebrew-grr)) | pending |
+| GitHub Releases | 3-platform binaries (Windows x64, Linux x64, macOS ARM) built on `v*` tags | live — [releases](https://github.com/debanjanbasu/grr-cli/releases) |
+| crates.io | `cargo install grr-cli` (binary installs as `grr`) | pending — the `grr` name is taken by an unrelated crate, so the package publishes as `grr-cli` |
+| winget | `winget install debanjanbasu.grr` | submitted (0.2.0) |
+| Homebrew | `brew install debanjanbasu/tap/grr` (tap: [debanjanbasu/homebrew-grr](https://github.com/debanjanbasu/homebrew-grr)) | live (0.2.0, arm64 macOS + x86_64 Linux) |
 
 Publishing model: `v*` tags trigger the release workflow (3-platform binaries); crates.io will use trusted publishing (no tokens).
 

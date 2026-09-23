@@ -1,4 +1,4 @@
-//! Minimal local HTTP server to receive the OAuth callback.
+﻿//! Minimal local HTTP server to receive the OAuth callback.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -7,9 +7,9 @@ use std::time::Duration;
 use anyhow::anyhow;
 use tokio::sync::Mutex;
 
-use crate::error::{GmailError, Result};
+use crate::error::{GrrError, Result};
 
-impl super::GmailAuth {
+impl super::GoogleAuth {
     /// Start local HTTP server to receive OAuth callback
     pub(crate) async fn start_callback_server(&self) -> Result<(String, String)> {
         let (tx, rx) = tokio::sync::oneshot::channel::<(String, String)>();
@@ -17,7 +17,7 @@ impl super::GmailAuth {
 
         let listener = tokio::net::TcpListener::bind("0.0.0.0:3434")
             .await
-            .map_err(GmailError::Io)?;
+            .map_err(GrrError::Io)?;
 
         tracing::info!("Waiting for OAuth callback on http://0.0.0.0:3434/oauth/callback");
 
@@ -74,15 +74,15 @@ impl super::GmailAuth {
         // Wait for callback with timeout
         let (code, state) = tokio::time::timeout(Duration::from_secs(120), rx)
             .await
-            .map_err(|_| GmailError::Timeout("OAuth callback timeout".into()))?
-            .map_err(|_| GmailError::Auth(anyhow!("OAuth callback channel closed").into()))?;
+            .map_err(|_| GrrError::Timeout("OAuth callback timeout".into()))?
+            .map_err(|_| GrrError::Auth(anyhow!("OAuth callback channel closed").into()))?;
 
         // Give the server time to send the response before aborting
         tokio::time::sleep(Duration::from_millis(500)).await;
         server_handle.abort();
 
         if code.is_empty() {
-            return Err(GmailError::Auth(
+            return Err(GrrError::Auth(
                 anyhow!("No authorization code received").into(),
             ));
         }

@@ -1,9 +1,9 @@
-//! History CLI commands
+﻿//! History CLI commands
 
 use crate::output::{OutputFormat, print_output};
 use anyhow::Result;
 use clap::Args;
-use grr_core::GmailClient;
+use grr_gmail::GmailClient;
 
 #[derive(Args, Debug)]
 pub struct HistoryArgs {

@@ -1,11 +1,11 @@
-//! Send email CLI commands
+﻿//! Send email CLI commands
 
 use crate::output::{OutputFormat, print_output};
 use anyhow::Result;
 use clap::{Args, Subcommand};
-use grr_core::AttachmentData;
-use grr_core::GmailClient;
-use grr_core::client::{StreamAttachment, mime_message_stream};
+use grr_gmail::AttachmentData;
+use grr_gmail::GmailClient;
+use grr_gmail::client::{StreamAttachment, mime_message_stream};
 use std::path::Path;
 
 #[derive(Subcommand, Debug)]

@@ -14,7 +14,13 @@ categories = ["command-line-utilities", "email"]
 [dependencies]
 # http3 always on in the CLI: it is this project's raison d'être. Nightly
 # required; .cargo/config.toml sets the reqwest_unstable cfg.
-grr-core = { path = "../grr-core", version = "0.2.0", features = ["http3"] }
+grr-core = { path = "../grr-core", version = "0.3.0", features = ["http3"] }
+grr-gmail = { path = "../grr-gmail", version = "0.3.0", features = ["http3"] }
+grr-calendar = { path = "../grr-calendar", version = "0.3.0", features = ["http3"] }
+grr-drive = { path = "../grr-drive", version = "0.3.0", features = ["http3"] }
+grr-people = { path = "../grr-people", version = "0.3.0", features = ["http3"] }
+grr-chat = { path = "../grr-chat", version = "0.3.0", features = ["http3"] }
+grr-forms = { path = "../grr-forms", version = "0.3.0", features = ["http3"] }
 clap = { workspace = true, features = ["derive", "env", "help", "usage", "cargo", "color", "unicode", "wrap_help"] }
 dirs = { workspace = true }
 tracing = { workspace = true }
