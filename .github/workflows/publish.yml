@@ -1,15 +1,10 @@
-<arg_value># Publish all grr crates to crates.io using Trusted Publishing (OIDC):
-# no long-lived API tokens stored anywhere. Requires the one-time
-# per-crate trust config on crates.io (Settings -> Trusted Publishing):
-#   owner: debanjanbasu, repo: grr-cli, workflow: publish.yml
-# Initial 0.3.0 versions were published with a short-lived API token
-# (since revoked); from here on this workflow is the only publisher.
-#
-# Note: publishing requires nightly + the reqwest_unstable cfg because
-# http3 is a default feature of every crate; the repo's .cargo/config.toml
-# supplies the cfg (and dot-configs are honored for workspace builds —
-# verification for `--no-verify`-less publishes happens inside it).
 name: Publish to crates.io
+
+# Trusted Publishing (OIDC): no long-lived API tokens stored anywhere.
+# One-time per-crate trust config on crates.io (Settings -> Trusted
+# Publishing): owner debanjanbasu, repo grr-cli, workflow publish.yml,
+# environment crates-io. Initial 0.3.0s were published with a since-revoked
+# short-lived token; from now on this workflow is the only publisher.
 
 on:
   workflow_dispatch:
@@ -18,13 +13,13 @@ on:
 
 permissions:
   contents: read
-  id-token: write # required for the OIDC token exchange
+  id-token: write
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    environment: crates-io # matches the crates.io trusted-publishing config
+    environment: crates-io
     steps:
       - uses: actions/checkout@v6
 
@@ -32,19 +27,16 @@ jobs:
         with:
           components: rust-src
 
-      - name: Authenticate with crates.io (trusted publishing, 30-min token)
+      - name: Authenticate with crates.io (trusted publishing)
         uses: rust-lang/crates-io-auth-action@v1
         id: auth
 
       # Dependency order matters: each crate resolves the previous ones from
-      # the registry during packaging. New-crate rate limits (~1 per 10 min
-      # when many new names land at once) no longer apply — these are
-      # version publishes of existing crates.
+      # the registry during packaging.
       - name: Publish grr-core
         run: cargo publish -p grr-core --no-verify
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
-        continue-on-error: false
 
       - name: Publish service crates
         run: |
