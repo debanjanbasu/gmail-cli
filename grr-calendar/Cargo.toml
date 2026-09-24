@@ -6,7 +6,7 @@ license = { workspace = true }
 authors = { workspace = true }
 repository = { workspace = true }
 description = "Google Calendar API client for the grr suite: typed endpoints over the shared HTTP/3 core"
-categories = ["api-bindings", "date-time", "network-programming"]
+categories = ["api-bindings", "date-and-time", "network-programming"]
 keywords = ["calendar", "api", "http3", "google"]
 
 [dependencies]
