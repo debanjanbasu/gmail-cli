@@ -24,6 +24,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    environment: crates-io # matches the crates.io trusted-publishing config
     steps:
       - uses: actions/checkout@v6
 
