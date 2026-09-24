@@ -168,7 +168,7 @@ cargo run -p grr-cli -- gmail profile
 | Channel | Install | Status |
 | --- | --- | --- |
 | GitHub Releases | 3-platform binaries (Windows x64, Linux x64, macOS ARM) built on `v*` tags | live — [releases](https://github.com/debanjanbasu/grr-cli/releases) |
-| crates.io | `cargo install grr-cli` (binary installs as `grr`) | pending — the `grr` name is taken by an unrelated crate, so the package publishes as `grr-cli` |
+| crates.io | `cargo install grr-cli` (binary installs as `grr`; needs nightly + `RUSTFLAGS="--cfg reqwest_unstable"` — or use the release binaries above) | **live — 0.3.0 published**; trusted publishing only (no tokens: the `publish.yml` workflow mints a 30-min OIDC token; all crates *require* trusted publishing) |
 | winget | `winget install debanjanbasu.grr` | submitted (0.2.0) |
 | Homebrew | `brew install debanjanbasu/tap/grr` (tap: [debanjanbasu/homebrew-grr](https://github.com/debanjanbasu/homebrew-grr)) | live (0.2.0, arm64 macOS + x86_64 Linux) |
 
