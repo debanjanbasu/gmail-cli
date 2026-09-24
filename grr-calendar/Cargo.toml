@@ -1,4 +1,4 @@
-[package]
+﻿[package]
 name = "grr-calendar"
 version = { workspace = true }
 edition = { workspace = true }
@@ -23,7 +23,9 @@ tracing = { workspace = true }
 urlencoding = { workspace = true }
 
 [features]
-# Forward: the CLI enables HTTP/3 everywhere; library users may stay stable.
+# HTTP/3 by default: the runtime auto-falls-back to HTTP/2 over TCP.
+# Requires nightly + RUSTFLAGS="--cfg reqwest_unstable" (see grr-core).
+default = ["http3"]
 http3 = ["grr-core/http3"]
 
 [dev-dependencies]

@@ -53,8 +53,14 @@ tokio-test = { workspace = true }
 tempfile = { workspace = true }
 
 [features]
-# Defaults are empty: stable toolchain, publishable to crates.io as-is.
-default = []
+# HTTP/3 is the project default: grr is nightly-everywhere by policy, and
+# the runtime auto-falls-back to HTTP/2 when QUIC cannot negotiate.
+# Building with this feature REQUIRES nightly Rust plus
+# RUSTFLAGS="--cfg reqwest_unstable" (reqwest hard-errors otherwise;
+# the repo's .cargo/config.toml sets this for in-repo builds).
+# Consumers on stable: use default-features = false (HTTP/2 + all
+# compression codecs still enabled).
+default = ["http3"]
 # Unstable HTTP/3 via QUIC. Requires nightly + the reqwest_unstable cfg
 # (the repo's .cargo/config.toml sets it); the CLI always enables this.
 http3 = ["reqwest/http3"]
