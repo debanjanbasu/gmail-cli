@@ -2,7 +2,7 @@
 
 One-time setup, about 5 minutes. You need three things: the Google Cloud CLI, a Google Cloud project with the Gmail API enabled, and a Desktop OAuth client ID.
 
-Shortcut: [scripts/setup-gcp.ps1](../scripts/setup-gcp.ps1) (Windows) and [scripts/setup-gcp.sh](../scripts/setup-gcp.sh) (macOS/Linux) automate steps 1–4 and print the console links for steps 5–6.
+Shortcut: [scripts/setup-gcp.ps1](../scripts/setup-gcp.ps1) (Windows) and [scripts/setup-gcp.sh](../scripts/setup-gcp.sh) (macOS/Linux) automate sign-in, project selection, and enabling the Gmail API, then print the console links for steps 5–6.
 
 ## 1. Install the Google Cloud CLI
 
@@ -55,17 +55,24 @@ gcloud services enable gmail.googleapis.com
 gcloud services enable calendar-json.googleapis.com drive.googleapis.com people.googleapis.com chat.googleapis.com forms.googleapis.com
 ```
 
-Or run [scripts/setup-gcp.ps1](../scripts/setup-gcp.ps1) / [scripts/setup-gcp.sh](../scripts/setup-gcp.sh) with `-AllServices` / `--all-services` to do this automatically.
+The setup scripts enable only `gmail.googleapis.com`; run the command above manually to enable the rest.
 
-Note: Google Keep has no public API, so it will never appear as a `grr` service.
+Note: Google Keep's API is Workspace-enterprise-only (no consumer API), so Keep will never appear as a `grr` service.
 
 ## 5. OAuth consent screen
 
 Open <https://console.cloud.google.com/apis/credentials/consent>:
 
 1. User type: **External**
-2. Fill in the minimal form (app name, support email) — personal use is fine
-3. Add the Google account you will sign in with as a **Test user**
+2. Fill in the minimal form. Use **Rust Rewrite** as the app name, choose a support email, and upload the orange crab logo from [`assets/logo.svg`](../assets/logo.svg). The project/fork is still **Google Rust Rewrite**; **Rust Rewrite** is the name shown by Google's consent screen.
+3. Use the project's public URLs when the form asks for them:
+   - Homepage: <https://debanjanbasu.github.io/grr-cli/>
+   - Privacy policy: <https://debanjanbasu.github.io/grr-cli/privacy/>
+   - Terms: <https://debanjanbasu.github.io/grr-cli/terms/>
+4. Add `debanjanbasu.github.io` as the authorized domain.
+5. Add the Google account you will sign in with as a **Test user**.
+
+One login covers every `grr` service, so the consent screen will ask for all of them — Gmail (read/compose/modify/labels), Calendar, Drive, Contacts, Chat (messages/spaces/memberships/reactions), and Forms (body/responses) — even if you only plan to use one. Enable the matching APIs (step 4) for the services you use.
 
 ## 6. Create the OAuth client ID
 
@@ -98,7 +105,7 @@ grr auth status
 grr gmail profile
 ```
 
-While the consent screen is in **Testing** mode, Google expires refresh tokens after about 7 days — rerun `grr auth login` when that happens. Publishing the app avoids it, but is unnecessary for personal use.
+While the consent screen is in **Testing** mode, Google expires refresh tokens after about 7 days — rerun `grr auth login` when that happens. The 0.4 release also adds `chat.delete`, `chat.memberships`, `chat.messages.reactions`, and `contacts.other.readonly`; existing users must run `grr auth login` again to grant those scopes. Publishing the app avoids the testing-mode expiry, but is unnecessary for personal use.
 
 ## Agent environments: no MCP setup
 

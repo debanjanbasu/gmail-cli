@@ -1,10 +1,14 @@
 name: Publish to crates.io
 
 # Trusted Publishing (OIDC): no long-lived API tokens stored anywhere.
-# One-time per-crate trust config on crates.io (Settings -> Trusted
-# Publishing): owner debanjanbasu, repo grr-cli, workflow publish.yml,
-# environment crates-io. Initial 0.3.0s were published with a since-revoked
+# One-time trust config on crates.io (Settings -> Trusted Publishing):
+# owner debanjanbasu, repo grr-cli, workflow publish.yml, environment
+# crates-io. The initial 0.3.0s were published with a since-revoked
 # short-lived token; from now on this workflow is the only publisher.
+#
+# The project is ONE crate: `grr-cli` (binary `grr`, library `grr_cli`).
+# The 0.3.0 library crates (grr-core, grr-gmail, grr-calendar, grr-drive,
+# grr-people, grr-chat, grr-forms) are legacy and receive no new versions.
 
 on:
   workflow_dispatch:
@@ -31,23 +35,7 @@ jobs:
         uses: rust-lang/crates-io-auth-action@v1
         id: auth
 
-      # Dependency order matters: each crate resolves the previous ones from
-      # the registry during packaging.
-      - name: Publish grr-core
-        run: cargo publish -p grr-core --no-verify
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
-
-      - name: Publish service crates
-        run: |
-          for c in grr-gmail grr-calendar grr-drive grr-people grr-chat grr-forms; do
-            echo "publishing $c"
-            cargo publish -p "$c" --no-verify
-          done
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
-
-      - name: Publish grr-cli (the binary)
-        run: cargo publish -p grr-cli --no-verify
+      - name: Publish grr-cli (the only published crate)
+        run: cargo publish --no-verify
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}

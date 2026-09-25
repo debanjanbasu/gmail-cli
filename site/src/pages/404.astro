@@ -1,0 +1,21 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+const base = import.meta.env.BASE_URL;
+---
+
+<BaseLayout title="Page not found" description="The requested grr page could not be found." noindex>
+  <section class="error-page">
+    <div class="container">
+      <div class="error-panel">
+        <span class="error-code">404</span>
+        <h1>That route went somewhere else.</h1>
+        <p>The page you requested is not part of this static site. The command is still waiting in your terminal.</p>
+        <div class="error-actions">
+          <a class="button button-primary" href={base}>Return home <span aria-hidden="true">→</span></a>
+          <a class="button button-secondary" href={`${base}install/`}>Install grr</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

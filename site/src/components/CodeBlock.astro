@@ -1,0 +1,16 @@
+---
+interface Props {
+  code: string;
+  label?: string;
+}
+
+const { code, label = 'shell' } = Astro.props;
+---
+
+<div class="code-window">
+  <div class="code-window-bar">
+    <span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+    <span>{label}</span>
+  </div>
+  <pre><code>{code}</code></pre>
+</div>

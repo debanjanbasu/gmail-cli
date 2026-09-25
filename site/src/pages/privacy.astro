@@ -1,0 +1,44 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="Privacy"
+  description="How grr handles local credentials, Google API requests, and the static project website."
+>
+  <section class="page-hero section">
+    <div class="container page-hero-grid">
+      <div>
+        <span class="eyebrow">privacy</span>
+        <h1>Your account stays yours.</h1>
+        <p>grr is a local command-line tool. This policy describes what the software does with credentials and requests, and what this static site does not do.</p>
+      </div>
+      <div class="page-hero-aside">effective · September 25, 2026</div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container prose">
+      <p class="lead">The grr project does not operate a backend, collect telemetry, or build an advertising profile. The CLI runs on your machine and uses your own Google OAuth credentials to call the Google services you choose.</p>
+
+      <h2>What the CLI does</h2>
+      <p>When you run a grr command, the binary sends the request to the relevant Google API using the access and refresh tokens issued to your Google account. grr sends only the requests needed for the command you selected. Google processes those requests under Google’s own applicable terms and privacy policies.</p>
+      <p>grr includes no analytics SDK, usage telemetry, or project-operated data collection endpoint. Your shell history, command output, and any files you create remain under your control.</p>
+
+      <h2>Credentials and token storage</h2>
+      <p>The OAuth client ID is stored in your local <code>~/.grr/config.toml</code> file (or <code>%USERPROFILE%\.grr\config.toml</code> on Windows). A client secret is optional and, when configured, is used at the token endpoint.</p>
+      <p>OAuth tokens are stored first in the operating system keyring: Windows Credential Manager, macOS Keychain, or the Linux Secret Service through D-Bus. On headless systems where a keyring is unavailable, grr falls back to <code>&lt;cache dir&gt;/grr/token.json</code>. A token found in that fallback file is automatically imported into the keyring when possible.</p>
+      <p>Anyone with access to your user account or local files may be able to access those credentials. Protect your machine, your config file, and your Google account as you would any other credential.</p>
+
+      <h2>This website</h2>
+      <p>This GitHub Pages site is static and has no analytics cookies or tracking scripts. The stats panel is rendered with build-time values. If its optional browser refresh runs, the browser makes direct requests to crates.io and GitHub’s public API; those services receive the ordinary network information required to serve their APIs.</p>
+      <p>No project data, OAuth token, or CLI command is sent to the grr website or to the project maintainers by the website.</p>
+
+      <h2>Sharing and retention</h2>
+      <p>grr does not sell personal information, share it with data brokers, or share it with third parties on behalf of the project. Data returned by Google APIs remains in the place your command and output handling put it. You are responsible for choosing where to save files, logs, and command output.</p>
+
+      <h2>Contact</h2>
+      <p>For privacy questions or to report a concern, open an issue in the project tracker: <a href="https://github.com/debanjanbasu/grr-cli/issues" target="_blank" rel="noreferrer">github.com/debanjanbasu/grr-cli/issues ↗</a>. Please do not include OAuth tokens, client secrets, or other private credentials in an issue.</p>
+    </div>
+  </section>
+</BaseLayout>

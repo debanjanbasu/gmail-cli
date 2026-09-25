@@ -1,0 +1,88 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import CodeBlock from '../components/CodeBlock.astro';
+import SectionIntro from '../components/SectionIntro.astro';
+
+const base = import.meta.env.BASE_URL;
+const releaseUrl = 'https://github.com/debanjanbasu/grr-cli/releases';
+const sourceExample = `git clone https://github.com/debanjanbasu/grr-cli.git
+cd grr-cli
+cargo build --release --locked
+./target/release/grr`;
+---
+
+<BaseLayout
+  title="Install grr"
+  description="Install grr on macOS, Linux, Windows, from crates.io, or build the Rust CLI from source."
+>
+  <section class="page-hero section">
+    <div class="container page-hero-grid">
+      <div>
+        <span class="eyebrow">install grr</span>
+        <h1>Pick the shortest path to your shell.</h1>
+        <p>Prebuilt binaries are the easy default. If you want a package manager, a crates.io install, or a local build, the project documents each route below.</p>
+      </div>
+      <div class="page-hero-aside">one binary · one OAuth login · six services</div>
+    </div>
+  </section>
+
+  <section class="install-section section" aria-labelledby="channels-title">
+    <div class="container">
+      <SectionIntro id="channels-title" eyebrow="release channels" title="Install the way you already ship software." copy="The published binary is named grr, even though the crates.io package is grr-cli because the short crate name grr is already taken." />
+      <div class="install-grid">
+        <article class="install-card install-card-wide">
+          <h2>Prebuilt binaries</h2>
+          <p>Download the archive for your platform from GitHub Releases. The release workflow publishes Windows x64, Linux x64, and macOS ARM binaries with checksums.</p>
+          <a class="button button-primary" href={releaseUrl} target="_blank" rel="noreferrer">Open GitHub Releases <span aria-hidden="true">↗</span></a>
+        </article>
+        <article class="install-card">
+          <h2>macOS + Linux</h2>
+          <p>The repository’s Homebrew tap serves arm64 macOS and x86_64 Linux builds.</p>
+          <CodeBlock code="brew install debanjanbasu/tap/grr" label="homebrew" />
+        </article>
+        <article class="install-card">
+          <h2>Windows</h2>
+          <p>The Windows package is available through winget. The repository currently notes 0.2.0 as live while the 0.3.0 update is pending review; 0.4.0 is in preparation.</p>
+          <CodeBlock code="winget install debanjanbasu.grr" label="winget" />
+        </article>
+        <article class="install-card">
+          <h2>crates.io</h2>
+          <p>The crate publishes as <code>grr-cli</code>; the installed executable is <code>grr</code>. The default CLI enables HTTP/3, so a crates.io source install needs nightly Rust and the <code>reqwest_unstable</code> cfg.</p>
+          <CodeBlock code={'RUSTFLAGS="--cfg reqwest_unstable" cargo install grr-cli --locked'} label="cargo · unix" />
+          <p class="install-note">PowerShell: set <code>$env:RUSTFLAGS='--cfg reqwest_unstable'</code> before running cargo. Library users can choose stable Rust with <code>default-features = false</code> and select only the service features they need.</p>
+        </article>
+        <article class="install-card">
+          <h2>OAuth setup</h2>
+          <p>After installing, create a Google Cloud Desktop OAuth client, put its client ID in <code>~/.grr/config.toml</code>, and authenticate locally.</p>
+          <CodeBlock code={`grr auth login\ngrr gmail profile`} label="first run" />
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="source-section section" aria-labelledby="source-title">
+    <div class="container source-grid">
+      <div class="source-copy">
+        <span class="eyebrow">from source</span>
+        <h2 id="source-title">Build the exact revision you want to run.</h2>
+        <p>The repository pins Rust nightly in <code>rust-toolchain.toml</code>. A local clone uses the repository’s Cargo config, which sets the unstable reqwest cfg and the extra build-std settings needed by the CLI.</p>
+        <p>The default CLI enables HTTP/3 through reqwest’s rustls/quinn path. The <code>grr_cli</code> library can use stable Rust with <code>default-features = false</code> and HTTP/2, while selecting services such as <code>gmail</code> as needed.</p>
+        <a class="button button-secondary" href="https://github.com/debanjanbasu/grr-cli#development" target="_blank" rel="noreferrer">Read development notes <span aria-hidden="true">↗</span></a>
+      </div>
+      <CodeBlock code={sourceExample} label="local clone" />
+    </div>
+  </section>
+
+  <section class="split-section section" aria-labelledby="next-title">
+    <div class="container prose">
+      <span class="eyebrow">next step</span>
+      <h2 id="next-title">One-time Google Cloud setup.</h2>
+      <p>Create a Google Cloud project, enable the APIs you need, and create a Desktop OAuth client. The repository’s setup guide walks through the consent screen, client ID, and headless login flow.</p>
+      <ul>
+        <li><a href="https://github.com/debanjanbasu/grr-cli/blob/main/docs/gcp-setup.md" target="_blank" rel="noreferrer">Google Cloud setup guide ↗</a></li>
+        <li><a href="https://github.com/debanjanbasu/grr-cli#60-second-quickstart" target="_blank" rel="noreferrer">60-second quickstart ↗</a></li>
+        <li><a href={base}>Back to the overview →</a></li>
+      </ul>
+    </div>
+  </section>
+</BaseLayout>

@@ -37,3 +37,7 @@ coverage/
 *.temp
 # Local gmail config (contains OAuth secrets)
 .config/
+
+/site/node_modules/
+/site/dist/
+/site/.astro/

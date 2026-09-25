@@ -1,0 +1,34 @@
+---
+const base = import.meta.env.BASE_URL;
+const currentPath = Astro.url.pathname;
+const links = [
+  { href: base, label: 'Overview' },
+  { href: `${base}install/`, label: 'Install' },
+  { href: `${base}privacy/`, label: 'Privacy' },
+  { href: `${base}terms/`, label: 'Terms' },
+];
+const isActive = (href: string) => {
+  if (href === base) {
+    return currentPath === base || currentPath === `${base}index.html`;
+  }
+  return currentPath.startsWith(href);
+};
+---
+
+<header class="site-header">
+  <div class="container header-inner">
+    <a class="brand" href={base} aria-label="grr home">
+      <img src={`${base}logo-wordmark.svg`} alt="grr — Google Rust Rewrite" width="640" height="256" />
+    </a>
+    <nav class="primary-nav" aria-label="Primary navigation">
+      {links.map((link) => (
+        <a class:list={{ active: isActive(link.href) }} href={link.href} aria-current={isActive(link.href) ? 'page' : undefined}>
+          {link.label}
+        </a>
+      ))}
+    </nav>
+    <a class="header-link" href="https://github.com/debanjanbasu/grr-cli" target="_blank" rel="noreferrer">
+      GitHub <span aria-hidden="true">↗</span>
+    </a>
+  </div>
+</header>

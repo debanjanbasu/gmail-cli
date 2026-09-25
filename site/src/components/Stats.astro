@@ -1,0 +1,101 @@
+---
+import stats from '../data/stats.json';
+
+const formatCount = (value: number | string) => {
+  const count = Number(value);
+  return new Intl.NumberFormat('en-US').format(Number.isFinite(count) ? count : 0);
+};
+
+const formatDate = (value: string) => {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
+};
+
+const base = import.meta.env.BASE_URL;
+---
+
+<section class="stats-section section" aria-labelledby="stats-title">
+  <div class="container">
+    <div class="section-heading stats-heading">
+      <span class="eyebrow">public pulse</span>
+      <h2 id="stats-title">Small binary.<br />Real reach.</h2>
+      <p>Build-time numbers from the public package and release channels, with a quiet optional refresh in your browser.</p>
+    </div>
+    <div class="stats-grid" aria-live="polite">
+      <article class="stat-card">
+        <span class="stat-label">crates.io downloads</span>
+        <strong class="stat-value" data-stat="crateDownloads">{formatCount(stats.crateDownloads)}</strong>
+        <span class="stat-detail"><span data-stat="crateDownloads30d">{formatCount(stats.crateDownloads30d)}</span> in the last 30 days</span>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">GitHub asset downloads</span>
+        <strong class="stat-value" data-stat="githubDownloads">{formatCount(stats.githubDownloads)}</strong>
+        <span class="stat-detail">across all public releases</span>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">latest release</span>
+        <strong class="stat-value stat-release" data-stat="latestRelease">{stats.latestRelease || '—'}</strong>
+        <span class="stat-detail" data-stat="latestReleaseDate">{formatDate(stats.latestReleaseDate)}</span>
+      </article>
+    </div>
+    <div class="stats-footnote">
+      <span class="status-dot" aria-hidden="true"></span>
+      <span>Snapshot refreshed <time data-stat="updatedAt" datetime={stats.updatedAt}>{formatDate(stats.updatedAt)}</time></span>
+      <a href={`${base}install/`}>Install the binary <span aria-hidden="true">→</span></a>
+    </div>
+  </div>
+</section>
+
+<script is:inline type="module">
+  const endpoints = {
+    crates: 'https://crates.io/api/v1/crates/grr-cli',
+    releases: 'https://api.github.com/repos/debanjanbasu/grr-cli/releases',
+  };
+  const numberText = (value) => {
+    const count = Number(value);
+    return Number.isFinite(count) ? new Intl.NumberFormat('en-US').format(count) : null;
+  };
+  const setText = (key, value) => {
+    const nextValue = String(value);
+    document.querySelectorAll(`[data-stat="${key}"]`).forEach((node) => {
+      if (node.textContent !== nextValue) node.textContent = nextValue;
+    });
+  };
+  const setDate = (key, value) => {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      setText(key, date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }));
+    }
+  };
+  const refresh = async () => {
+    try {
+      const [crateResponse, releasesResponse] = await Promise.all([
+        fetch(endpoints.crates, { headers: { Accept: 'application/json' } }),
+        fetch(endpoints.releases, { headers: { Accept: 'application/vnd.github+json' } }),
+      ]);
+      if (!crateResponse.ok || !releasesResponse.ok) return;
+      const [cratePayload, releasesPayload] = await Promise.all([crateResponse.json(), releasesResponse.json()]);
+      if (!cratePayload?.crate || !Array.isArray(releasesPayload)) return;
+      const crate = cratePayload.crate;
+      const total = numberText(crate.downloads);
+      const recent = numberText(crate.recent_downloads);
+      const githubTotal = releasesPayload.reduce((releaseTotal, release) => {
+        const assets = Array.isArray(release?.assets) ? release.assets : [];
+        return releaseTotal + assets.reduce((assetTotal, asset) => assetTotal + (Number(asset?.download_count) || 0), 0);
+      }, 0);
+      const latest = releasesPayload
+        .filter((release) => release && !release.draft)
+        .sort((left, right) => Date.parse(right.published_at ?? right.created_at ?? '') - Date.parse(left.published_at ?? left.created_at ?? ''))[0];
+      if (total !== null) setText('crateDownloads', total);
+      if (recent !== null) setText('crateDownloads30d', recent);
+      setText('githubDownloads', numberText(githubTotal) ?? '—');
+      if (latest?.tag_name) setText('latestRelease', latest.tag_name);
+      if (latest?.published_at || latest?.created_at) setDate('latestReleaseDate', latest.published_at ?? latest.created_at);
+      setDate('updatedAt', new Date().toISOString());
+    } catch {
+      return;
+    }
+  };
+  refresh();
+</script>

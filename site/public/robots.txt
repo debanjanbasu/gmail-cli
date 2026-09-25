@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://debanjanbasu.github.io/grr-cli/sitemap.xml

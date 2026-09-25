@@ -1,0 +1,33 @@
+---
+const base = import.meta.env.BASE_URL;
+---
+
+<footer class="site-footer">
+  <div class="container footer-grid">
+    <div>
+      <a class="footer-brand" href={base}>
+        <img src={`${base}logo.svg`} alt="" width="64" height="64" />
+        <span>grr</span>
+      </a>
+      <p class="footer-tagline">Google tools from the terminal.</p>
+    </div>
+    <div class="footer-links" aria-label="Footer navigation">
+      <div>
+        <span class="footer-label">Explore</span>
+        <a href={`${base}install/`}>Install</a>
+        <a href="https://crates.io/crates/grr-cli" target="_blank" rel="noreferrer">crates.io ↗</a>
+        <a href="https://docs.rs/grr-cli" target="_blank" rel="noreferrer">API docs ↗</a>
+      </div>
+      <div>
+        <span class="footer-label">Project</span>
+        <a href="https://github.com/debanjanbasu/grr-cli" target="_blank" rel="noreferrer">GitHub ↗</a>
+        <a href={`${base}privacy/`}>Privacy</a>
+        <a href={`${base}terms/`}>Terms</a>
+      </div>
+    </div>
+  </div>
+  <div class="container footer-bottom">
+    <p>grr is an independent project and is not affiliated with, sponsored by, or endorsed by Google LLC.</p>
+    <p>MIT licensed · built for the terminal</p>
+  </div>
+</footer>

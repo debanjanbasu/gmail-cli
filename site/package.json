@@ -1,0 +1,20 @@
+{
+  "name": "grr-site",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "lint": "astro check",
+    "typecheck": "astro check",
+    "update-stats": "node scripts/update-stats.mjs"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.4",
+    "astro": "^7.3.5",
+    "typescript": "^5.7.0"
+  }
+}

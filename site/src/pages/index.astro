@@ -1,0 +1,339 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import CodeBlock from '../components/CodeBlock.astro';
+import SectionIntro from '../components/SectionIntro.astro';
+import Stats from '../components/Stats.astro';
+
+const base = import.meta.env.BASE_URL;
+const services = [
+  {
+    name: 'Gmail',
+    glyph: 'G',
+    accent: '#ff8a3d',
+    description: 'Search, read, compose, label, filter, route mail, and batch without leaving your shell.',
+    commands: [
+      'grr gmail message search "in:inbox" --max 5',
+      'grr gmail msg filter-list',
+      'grr gmail thread list',
+      'grr gmail send-as verify alias@example.com',
+    ],
+  },
+  {
+    name: 'Calendar',
+    glyph: '31',
+    accent: '#fb923c',
+    description: 'List calendars, manage events, watch changes, and check free-busy windows in one pass.',
+    commands: [
+      'grr calendar events --max 10',
+      'grr calendar patch <calendar-id> <event-id> --summary "Updated"',
+      'grr calendar watch <calendar-id> --webhook https://example.com/hook',
+    ],
+  },
+  {
+    name: 'Drive',
+    glyph: 'D',
+    accent: '#f97316',
+    description: 'Find files, inspect metadata, manage sharing and comments, and control storage.',
+    commands: [
+      'grr drive list --trashed --max 20',
+      'grr drive comment-add <file-id> --text "Note"',
+      'grr drive quota',
+    ],
+  },
+  {
+    name: 'Contacts',
+    glyph: 'P',
+    accent: '#ea580c',
+    description: 'Query people, organize groups, batch-read profiles, and keep photos close to your workflows.',
+    commands: [
+      'grr contacts list --max 20',
+      'grr contacts get-batch --people people/123',
+      'grr contacts photo-set <people/123> --path photo.jpg',
+    ],
+  },
+  {
+    name: 'Chat',
+    glyph: 'C',
+    accent: '#fdba74',
+    description: 'Browse spaces, manage members, read messages, and react without context switching.',
+    commands: [
+      'grr chat spaces --max 10',
+      'grr chat member-add <space-id> --user user@example.com',
+      'grr chat react <space-id> <message-id> --emoji "👍"',
+    ],
+  },
+  {
+    name: 'Forms',
+    glyph: 'F',
+    accent: '#c2410c',
+    description: 'Read and update forms, pull responses, and manage watch channels for lightweight automation.',
+    commands: [
+      'grr forms get <form-id>',
+      'grr forms responses <form-id> --max 50',
+      'grr forms watch-renew <form-id> <watch-id>',
+    ],
+  },
+];
+const commandSurfaces = [
+  {
+    name: 'Gmail',
+    commands: 'message, label, draft, send, thread, history, send-as, profile, watch, import, msg; msg: label, trash, untrash, delete, batch-label, batch-delete, filter-list, filter, filter-create, filter-delete, forwarding-list, forwarding-create, forwarding-delete, autoforwarding, autoforwarding-set, pop, pop-set, imap, imap-set; thread: list, label, trash, untrash, delete; send-as: list, get, create, update, delete, verify',
+  },
+  {
+    name: 'Calendar',
+    commands: 'list, events, get, new, create, update, delete, free-busy, set, instances, patch, move, watch, stop, colors, settings, share, shares, unshare',
+  },
+  {
+    name: 'Drive',
+    commands: 'list, search, get, mkdir, trash, restore, copy, empty-trash, download, upload, rename, delete, export, share, shares, unshare, comments, comment, comment-add, comment-delete, revisions, revision, quota',
+  },
+  {
+    name: 'Contacts',
+    commands: 'list, search, get, create, update, delete, groups, group, group-new, group-rename, group-delete, group-add, group-remove, get-batch, others, adopt, photos, photo-set, photo-remove',
+  },
+  {
+    name: 'Chat',
+    commands: 'spaces, space, space-new, space-rename, space-delete, members, member, member-add, member-remove, messages, send, react, reactions, unreact',
+  },
+  {
+    name: 'Forms',
+    commands: 'get, responses, new, update, watch, watches, watch-delete, watch-renew',
+  },
+];
+const features = [
+  {
+    icon: '01',
+    title: 'stdout stays clean',
+    copy: 'Results go to stdout and logs go to stderr, so jq, scripts, and agents get predictable data by default.',
+  },
+  {
+    icon: '02',
+    title: 'one login, six services',
+    copy: 'Gmail, Calendar, Drive, Contacts, Chat, and Forms share one OAuth login and one keyring-backed token store.',
+  },
+  {
+    icon: '03',
+    title: 'agent-first by design',
+    copy: 'grr schema emits the complete command tree as JSON. No MCP setup and no scraping help text required.',
+  },
+  {
+    icon: '04',
+    title: 'HTTP/3 when available',
+    copy: 'The transport probes authenticated QUIC at startup and falls back silently to HTTP/2 when it cannot negotiate.',
+  },
+];
+const faqs = [
+  {
+    question: 'What is grr?',
+    answer: 'grr is a Rust CLI for Google services from the terminal. It combines Gmail, Calendar, Drive, Contacts, Chat, and Forms in one namespaced binary with machine-readable output and a single OAuth login.',
+  },
+  {
+    question: 'How does OAuth work?',
+    answer: 'You create a Google Cloud Desktop OAuth client, put its client ID in ~/.grr/config.toml, and run grr auth login. PKCE is always enabled; tokens are kept in the operating system keyring, with a local file fallback for headless systems. grr auth login --device prints a URL and code for machines without a browser.',
+  },
+  {
+    question: 'Do I need to log in again for 0.4?',
+    answer: 'Yes. Version 0.4 adds chat.delete, chat.memberships, chat.messages.reactions, and contacts.other.readonly scopes. Run grr auth login again to grant the expanded permissions; device flow is available for headless machines.',
+  },
+  {
+    question: 'Is grr affiliated with Google?',
+    answer: 'No. grr is an independent project. It is not affiliated with, sponsored by, or endorsed by Google LLC. It uses public Google APIs and your own Google account credentials.',
+  },
+  {
+    question: 'How do I install it?',
+    answer: 'Use a prebuilt GitHub Release, the documented Homebrew or winget package, or cargo install grr-cli from crates.io. The install page has the exact commands, including the nightly Rust setup needed by the CLI HTTP/3 build.',
+  },
+  {
+    question: 'Why does it need nightly Rust?',
+    answer: 'The CLI enables HTTP/3 through reqwest and QUIC support, which is gated behind Rust nightly and the reqwest_unstable cfg. The repo pins the required toolchain and sets the cfg for in-repo builds; the CLI falls back to HTTP/2 at runtime if QUIC is unavailable.',
+  },
+];
+const sessionExample = `$ grr auth login
+✓ browser consent complete
+
+$ grr gmail message search "in:inbox" --max 1
+[{"id":"191f8ab2","threadId":"191f8ab2","subject":"Build notes"}]
+
+$ grr gmail message get 191f8ab2 --message-format metadata --body --max-length 2000
+{"message":{...},"body":"..."}`;
+const libraryExample = `[dependencies]
+grr-cli = { version = "0.4.0", default-features = false, features = ["gmail"] }`;
+---
+
+<BaseLayout
+  title="Google tools from the terminal"
+  description="grr is a zero-config Rust CLI for Gmail, Calendar, Drive, Contacts, Chat, and Forms, with clean machine-readable output and HTTP/3 when available."
+>
+  <section class="hero section">
+    <div class="container hero-grid">
+      <div class="hero-copy">
+        <a class="brand hero-wordmark" href={base} aria-label="grr home">
+          <img src={`${base}logo-wordmark.svg`} alt="grr — Google Rust Rewrite" width="640" height="256" />
+        </a>
+        <span class="eyebrow"><span class="status-dot" aria-hidden="true"></span> v0.4.0 · release in preparation · rust cli · mit</span>
+        <h1>Google tools,<br /><span>at terminal speed.</span></h1>
+        <p class="hero-lede">Zero-config, maximum-performance Google tools from the terminal. One binary, six services, and output that plays nicely with jq.</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href={`${base}install/`}>Install grr <span aria-hidden="true">→</span></a>
+          <a class="button button-secondary" href="https://github.com/debanjanbasu/grr-cli/releases" target="_blank" rel="noreferrer">GitHub releases <span aria-hidden="true">↗</span></a>
+        </div>
+        <p class="hero-note">Configure one OAuth client ID. The CLI handles the rest.</p>
+      </div>
+      <div class="hero-visual">
+        <div class="mascot-stage">
+          <span class="scene-label">grr // online</span>
+          <span class="scene-spark spark-one" aria-hidden="true"></span>
+          <span class="scene-spark spark-two" aria-hidden="true"></span>
+          <span class="scene-spark spark-three" aria-hidden="true"></span>
+          <div class="mascot-shadow" aria-hidden="true"></div>
+          <div class="mascot-wrap">
+            <img class="mascot-art" src={`${base}logo.svg`} alt="Pixel-art orange crab mascot" width="256" height="256" />
+            <span class="mascot-eye eye-left" aria-hidden="true"></span>
+            <span class="mascot-eye eye-right" aria-hidden="true"></span>
+          </div>
+          <div class="terminal-card">
+            <div class="terminal-line"><span class="terminal-prompt">$</span><span>grr gmail profile</span><span class="terminal-cursor" aria-hidden="true"></span></div>
+            <div class="terminal-line"><span class="terminal-prompt">→</span><span>mailbox ready · output is yours</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <Stats />
+
+  <section class="service-section section" id="services" aria-labelledby="services-title">
+    <div class="container">
+      <SectionIntro
+        id="services-title"
+        eyebrow="six services · one login"
+        title="The useful parts of your Google account, namespaced."
+        copy="Keep commands close to the work they support. Every data command accepts JSON, JSONL, table, or pretty output; JSON is the default."
+      />
+      <div class="service-grid">
+        {services.map((service) => (
+          <article class="service-card" style={`--service-accent: ${service.accent}`}>
+            <div class="service-head">
+              <span class="service-mark" aria-hidden="true">{service.glyph}</span>
+              <h3 id={`${service.name.toLowerCase()}-title`}>{service.name}</h3>
+            </div>
+            <p class="service-copy">{service.description}</p>
+            <ul class="command-list" aria-label={`${service.name} examples`}>
+              {service.commands.map((command) => <li><code>{command}</code></li>)}
+            </ul>
+            <a class="service-link" href={`${base}install/`}>See install notes <span aria-hidden="true">→</span></a>
+          </article>
+        ))}
+      </div>
+      <div class="prose">
+        <h3>Complete 0.4 command surface</h3>
+        <ul>
+          {commandSurfaces.map((surface) => (
+            <li><strong>{surface.name}:</strong> <code>{surface.commands}</code></li>
+          ))}
+        </ul>
+        <p>Run <code>grr &lt;service&gt; --help</code> and <code>grr schema</code> for the exact flags. Gmail filters, forwarding, auto-forwarding, POP, and IMAP are under <code>grr gmail msg</code>; <code>thread list</code>, <code>send-as verify</code>, and paginated history are also available.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="split-section section" aria-labelledby="library-title">
+    <div class="container split-grid">
+      <div class="section-heading">
+        <span class="eyebrow">Use it as a library</span>
+        <h2 id="library-title">One crate. Only the services you need.</h2>
+        <p>The published package is <code>grr-cli</code>. Its default features are <code>default = ["cli", "http3"]</code>; the <code>cli</code> feature enables the complete binary and all six services (the <code>grr</code> binary uses <code>required-features = ["cli"]</code>), while <code>gmail</code>, <code>calendar</code>, <code>drive</code>, <code>people</code>, <code>chat</code>, and <code>forms</code> can be selected independently. With <code>default-features = false</code>, the library builds on stable Rust over HTTP/2. HTTP/3 is the <code>http3</code> feature and needs nightly Rust plus the <code>reqwest_unstable</code> cfg.</p>
+      </div>
+      <CodeBlock code={libraryExample} label="cargo · library" />
+    </div>
+  </section>
+
+  <section class="split-section section" aria-labelledby="features-title">
+    <div class="container split-grid">
+      <div>
+        <span class="eyebrow">built for the shell</span>
+        <h2 id="features-title">Less glue.<br />More signal.</h2>
+        <p class="section-heading">grr is deliberately small at the interface: predictable commands, fast transport, and no hidden service setup.</p>
+        <div class="feature-list">
+          {features.map((feature) => (
+            <article class="feature-item">
+              <span class="feature-icon" aria-hidden="true">{feature.icon}</span>
+              <div>
+                <h3>{feature.title}</h3>
+                <p>{feature.copy}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+      <div class="session-panel">
+        <div class="session-copy">
+          <span class="eyebrow">one clean session</span>
+          <h2>From inbox to insight, without the tab.</h2>
+          <p>Search a message, fetch a bounded body, and keep the output parseable. The command tree is available as JSON for agents with <code>grr schema</code>.</p>
+          <a class="button button-secondary" href="https://github.com/debanjanbasu/grr-cli#usage-highlights" target="_blank" rel="noreferrer">Browse command examples <span aria-hidden="true">↗</span></a>
+        </div>
+        <CodeBlock code={sessionExample} label="terminal · grr" />
+      </div>
+    </div>
+  </section>
+
+  <section class="session-section section" aria-labelledby="session-title">
+    <div class="container">
+      <div class="section-heading">
+        <span class="eyebrow">machine-friendly by default</span>
+        <h2 id="session-title">Your shell is the API client.</h2>
+        <p>Use a human-readable table when you need it, or keep the default JSON and let the next tool take it from there.</p>
+      </div>
+      <CodeBlock code={`$ grr gmail message search "from:github.com" --max 10 | jq -r '.[0].id'\n191f8ab2\n\n$ grr transport\n{"http_version":"h3","fallback":"h2"}`} label="pipe-friendly output" />
+    </div>
+  </section>
+
+  <section class="link-band section" aria-labelledby="links-title">
+    <div class="container">
+      <div class="section-heading">
+        <span class="eyebrow">go deeper</span>
+        <h2 id="links-title">The source is the docs.</h2>
+      </div>
+      <div class="link-grid">
+        <a class="link-card" href="https://crates.io/crates/grr-cli" target="_blank" rel="noreferrer">
+          <strong>crates.io ↗</strong>
+          <span>Package metadata, versions, and the published crate.</span>
+        </a>
+        <a class="link-card" href="https://docs.rs/grr-cli" target="_blank" rel="noreferrer">
+          <strong>docs.rs ↗</strong>
+          <span>Generated API documentation for the published crates.</span>
+        </a>
+        <a class="link-card" href="https://github.com/debanjanbasu/grr-cli" target="_blank" rel="noreferrer">
+          <strong>GitHub ↗</strong>
+          <span>README, releases, source, and the issue tracker.</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="faq-section section" aria-labelledby="faq-title">
+    <div class="container">
+      <SectionIntro id="faq-title" eyebrow="questions, answered" title="No mystery meat." copy="The short version of the things people usually want to know before putting a Google account behind a terminal tool." />
+      <div class="faq-list">
+        {faqs.map((faq) => (
+          <details class="faq-item">
+            <summary>{faq.question}</summary>
+            <div class="faq-answer">{faq.answer}</div>
+          </details>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-section section" aria-labelledby="cta-title">
+    <div class="container">
+      <div class="cta-panel">
+        <h2 id="cta-title">Your Google workflows deserve a better terminal.</h2>
+        <p>Grab a binary, point it at your own OAuth client, and let grr get out of the way.</p>
+        <a class="button" href={`${base}install/`}>Choose your install path <span aria-hidden="true">→</span></a>
+        <p class="legal-note">grr is an independent project and is not affiliated with, sponsored by, or endorsed by Google LLC.</p>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
