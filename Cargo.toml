@@ -11,7 +11,7 @@ repository = "https://github.com/debanjanbasu/grr-cli"
 description = "Google tools from the terminal, at maximum performance: zero-config Gmail, Calendar, Drive, Contacts, Chat and Forms over HTTP/3"
 readme = "README.md"
 keywords = ["google", "gmail", "http3", "cli", "oauth"]
-categories = ["api-bindings", "command-line-utilities", "date-and-time", "email", "filesystem", "network-programming", "web-programming"]
+categories = ["command-line-utilities", "api-bindings", "email", "network-programming", "web-programming"]
 
 [lib]
 name = "grr_cli"
