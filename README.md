@@ -44,7 +44,7 @@ cargo install --path . --locked
 ```sh
 winget install debanjanbasu.grr       # Windows (0.2.0 live; 0.3.0 update PR pending)
 brew install debanjanbasu/tap/grr     # macOS + Linux (tap: debanjanbasu/homebrew-grr)
-cargo install grr-cli                 # crates.io (0.3.0 live; 0.4.0 in preparation)
+cargo install grr-cli                 # crates.io (0.4.0 live)
 ```
 
 The crates.io CLI build needs nightly Rust and `RUSTFLAGS="--cfg reqwest_unstable"` for HTTP/3; the prebuilt releases avoid that source-build step. Library consumers pick services with cargo features; every build, library or CLI, requires Rust nightly (see [Library use](#library-use)).
@@ -217,10 +217,10 @@ cargo run -- gmail profile
 
 | Channel | Install | Status |
 | --- | --- | --- |
-| GitHub Releases | 3-platform binaries (Windows x64, Linux x64, macOS ARM) built on `v*` tags | live for existing releases; **0.4.0 release in preparation** — [releases](https://github.com/debanjanbasu/grr-cli/releases) |
-| crates.io | `cargo install grr-cli` (binary installs as `grr`; needs nightly + `RUSTFLAGS="--cfg reqwest_unstable"` for the default CLI HTTP/3 build) | **0.3.0 live; 0.4.0 release in preparation** — one crate now; the 0.3.0 library crates are legacy/unpublished going forward. Trusted publishing uses OIDC (no stored API tokens) |
-| winget | `winget install debanjanbasu.grr` | live at 0.2.0; update PR to 0.3.0 pending Microsoft review |
-| Homebrew | `brew install debanjanbasu/tap/grr` (tap: [debanjanbasu/homebrew-grr](https://github.com/debanjanbasu/homebrew-grr)) | live (0.3.0, arm64 macOS + x86_64 Linux) |
+| GitHub Releases | 3-platform binaries (Windows x64, Linux x64, macOS ARM) built on `v*` tags | **live — 0.4.0** — [releases](https://github.com/debanjanbasu/grr-cli/releases) |
+| crates.io | `cargo install grr-cli` (binary installs as `grr`; needs nightly + `RUSTFLAGS="--cfg reqwest_unstable"` for the default CLI HTTP/3 build) | **live — 0.4.0, one crate**; the 0.3.0 library crates are legacy/unpublished going forward. Trusted publishing uses OIDC (no stored API tokens) |
+| winget | `winget install debanjanbasu.grr` | live at 0.2.0; update PR pending Microsoft review |
+| Homebrew | `brew install debanjanbasu/tap/grr` (tap: [debanjanbasu/homebrew-grr](https://github.com/debanjanbasu/homebrew-grr)) | live (arm64 macOS + x86_64 Linux) |
 
 The project publishes one package, `grr-cli` (library `grr_cli` plus binary `grr`). `v*` tags trigger the release workflow, and crates.io publishing is handled through trusted publishing; the 0.3.0 service/core crates do not receive new releases.
 
