@@ -1,41 +1,33 @@
 name: Publish to crates.io
 
-# Trusted Publishing (OIDC): no long-lived API tokens stored anywhere.
-# One-time trust config on crates.io (Settings -> Trusted Publishing):
-# owner debanjanbasu, repo grr-cli, workflow publish.yml, environment
-# crates-io. The initial 0.3.0s were published with a since-revoked
-# short-lived token; from now on this workflow is the only publisher.
-#
-# The project is ONE crate: `grr-cli` (binary `grr`, library `grr_cli`).
-# The 0.3.0 library crates (grr-core, grr-gmail, grr-calendar, grr-drive,
-# grr-people, grr-chat, grr-forms) are legacy and receive no new versions.
-
 on:
   workflow_dispatch:
   push:
     tags: ["v*"]
 
-permissions:
-  contents: read
-  id-token: write
+concurrency:
+  group: publish
+  cancel-in-progress: false
 
 jobs:
   publish:
+    name: publish grr-cli
     runs-on: ubuntu-latest
     timeout-minutes: 90
     environment: crates-io
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - uses: actions/checkout@v6
-
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src
-
-      - name: Authenticate with crates.io (trusted publishing)
+      - uses: Swatinem/rust-cache@v2
+      - name: Authenticate with crates.io
         uses: rust-lang/crates-io-auth-action@v1
         id: auth
-
-      - name: Publish grr-cli (the only published crate)
-        run: cargo publish --no-verify
+      - name: Publish grr-cli
+        run: cargo publish --locked --no-verify
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}

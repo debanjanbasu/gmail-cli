@@ -5,55 +5,86 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  fmt:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@nightly
-        with:
-          components: rustfmt, rust-src
-      - run: cargo fmt --all --check
-
-  clippy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@nightly
-        with:
-          components: clippy, rust-src
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo clippy --workspace --all-targets -- -D warnings
-
   test:
+    if: github.event_name != 'schedule'
     name: test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test --workspace --locked
+        with:
+          cache-bin: true
+      - name: Build
+        run: cargo build --locked
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
+      - name: Test
+        run: cargo nextest run --locked --all-features
+      - name: Test doctests
+        run: cargo test --locked --doc
 
-  # The release profile (fat LTO, panic=abort, build-std) differs enough from
-  # dev that it can break independently — build the grr binary once, on
-  # Windows, to catch release-only issues without slowing the test matrix.
-  release-build:
-    name: release build (windows)
-    runs-on: windows-latest
+  clippy:
+    if: github.event_name != 'schedule'
+    name: clippy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@nightly
         with:
-          components: rust-src
+          components: clippy, rust-src
       - uses: Swatinem/rust-cache@v2
-      - run: cargo build --release --locked -p grr-cli
+      - name: Lint
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+  fmt:
+    if: github.event_name != 'schedule'
+    name: fmt
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt, rust-src
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+  security:
+    name: security audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    permissions:
+      contents: read
+      issues: write
+      checks: write
+    steps:
+      - uses: actions/checkout@v5
+      - name: Audit Rust dependencies
+        uses: rustsec/audit-check@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}

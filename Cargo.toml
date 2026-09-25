@@ -23,18 +23,17 @@ path = "src/main.rs"
 required-features = ["cli"]
 
 [dependencies]
-reqwest = { version = "0.13.4", default-features = false, features = ["http2", "rustls", "json", "form", "query", "stream", "multipart", "gzip", "deflate", "zstd", "brotli"] }
-tokio = { version = "1.53.1", features = ["full"] }
+reqwest = { version = "0.13.4", default-features = false, features = ["http2", "http3", "rustls", "json", "form", "query", "stream", "multipart", "gzip", "deflate", "zstd", "brotli"] }
+tokio = { version = "1.53.1", features = ["macros", "rt-multi-thread", "sync", "time", "fs", "net", "io-util", "io-std"] }
 tokio-util = { version = "0.7.16", features = ["io"] }
-serde = { version = "1.0.229", features = ["derive", "rc"] }
+serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.151"
 url = "2.5.8"
-rustls = { version = "0.23.43", features = ["std", "logging", "aws-lc-rs"] }
 clap = { version = "4.6.6", features = ["derive", "env", "wrap_help", "string", "help", "usage", "cargo", "color", "unicode"] }
 dirs = "5.0.1"
 figment = { version = "0.10.19", features = ["env", "toml"] }
-tracing = { version = "0.1.44", features = ["std", "log", "attributes"] }
-tracing-subscriber = { version = "0.3.23", features = ["env-filter", "json", "fmt"] }
+tracing = { version = "0.1.44", features = ["std"] }
+tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"], optional = true }
 futures = "0.3.34"
 bytes = "1.10"
 anyhow = "1.0.104"
@@ -42,7 +41,7 @@ thiserror = "2.0.20"
 base64 = { version = "0.23.1", features = ["alloc", "std"] }
 rand = { version = "0.8.7", features = ["std"] }
 sha2 = "0.10.9"
-urlencoding = "2.1.3"
+urlencoding = { version = "2.1.3", optional = true }
 open = "5.4"
 num_cpus = "1.17"
 keyring = { version = "4.2.0", features = ["windows-native-keyring-store", "apple-native-keyring-store", "zbus-secret-service-keyring-store"] }
@@ -60,15 +59,14 @@ assert_cmd = "2.2"
 predicates = "3.1"
 
 [features]
-default = ["cli", "http3"]
+default = ["cli"]
 gmail = []
-calendar = []
-drive = []
+calendar = ["dep:urlencoding"]
+drive = ["dep:urlencoding"]
 people = []
-chat = []
-forms = []
-http3 = ["reqwest/http3"]
-cli = ["gmail", "calendar", "drive", "people", "chat", "forms"]
+chat = ["dep:urlencoding"]
+forms = ["dep:urlencoding"]
+cli = ["gmail", "calendar", "drive", "people", "chat", "forms", "dep:tracing-subscriber"]
 
 [profile.dev]
 opt-level = 1
@@ -102,6 +100,3 @@ opt-level = 3
 lto = "fat"
 codegen-units = 1
 
-[lints]
-[lints.cargo]
-unused_dependencies = "allow"

@@ -1,0 +1,27 @@
+---
+import mascotIdle from '../assets/mascot-idle.svg';
+import mascotWave from '../assets/mascot-wave.svg';
+import mascotSleep from '../assets/mascot-sleep.svg';
+import mascotCelebrate from '../assets/mascot-celebrate.svg';
+
+interface Props {
+  label?: string;
+}
+
+const { label = 'Pixel-art orange crab mascot cycling through four poses' } = Astro.props;
+const poses = [
+  { className: 'mascot-frame-idle', src: mascotIdle.src },
+  { className: 'mascot-frame-wave', src: mascotWave.src },
+  { className: 'mascot-frame-sleep', src: mascotSleep.src },
+  { className: 'mascot-frame-celebrate', src: mascotCelebrate.src },
+];
+---
+
+<div class="mascot-wrap" role="img" aria-label={label}>
+  <div class="mascot-sprite" aria-hidden="true">
+    {poses.map((pose) => (
+      <img class={`mascot-frame ${pose.className}`} src={pose.src} alt="" width="512" height="512" decoding="async" />
+    ))}
+    <span class="mascot-blink" aria-hidden="true"></span>
+  </div>
+</div>

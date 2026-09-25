@@ -16,8 +16,9 @@ use url::Url;
 
 use crate::core::auth::{DeviceAuthChallenge, GoogleAuth, TokenStorage};
 use crate::core::error::{GrrError, Result};
-use crate::core::http::{HttpCore, TransportInfo};
+use crate::core::http::{HttpCore, QueryParams, TransportInfo, join_url, parse_url};
 use crate::core::runtime::detect_runtime_features;
+use crate::core::{Page, paginate};
 
 use crate::people::models::*;
 
@@ -101,18 +102,15 @@ impl PeopleClientBuilder {
         let has_base_override = self.base_url.is_some();
         let base_url = match self.base_url {
             Some(url) => url,
-            None => Url::parse(DEFAULT_BASE_URL)
-                .map_err(|e| GrrError::Config(format!("Invalid base URL: {}", e)))?,
+            None => parse_url(DEFAULT_BASE_URL, "base")?,
         };
 
         let core = if has_base_override {
-            // Explicit base URL (test injection): skip the transport probe —
-            // mock servers speak HTTP/1.1 and QUIC packets would just time out.
-            HttpCore::unprobed(auth, crate::core::http::build_http_client())
+            HttpCore::unprobed(auth, crate::core::http::build_http_client()?)
         } else {
-            HttpCore::connect(auth, &base_url, PROBE_PATH).await
+            HttpCore::connect(auth, &base_url, PROBE_PATH).await?
         };
-        PeopleClient::new(core, base_url)
+        PeopleClient::new(core, base_url).await
     }
 }
 
@@ -131,11 +129,11 @@ pub struct PeopleClient {
 
 impl PeopleClient {
     /// Create new client from a connected core (test injection point).
-    pub fn new(core: HttpCore, base_url: Url) -> Result<Self> {
-        let features = detect_runtime_features();
+    pub async fn new(core: HttpCore, base_url: Url) -> Result<Self> {
+        let features = detect_runtime_features().await;
         info!(
-            "PeopleClient initialized: http3={}, io_uring={}",
-            features.http3, features.io_uring
+            "PeopleClient initialized: http3=always, io_uring={}",
+            features.io_uring
         );
         Ok(Self { core, base_url })
     }
@@ -181,9 +179,7 @@ impl PeopleClient {
 
     /// Build API URL with proper error handling.
     fn api_url(&self, path: &str) -> Result<Url> {
-        self.base_url
-            .join(path)
-            .map_err(|e| GrrError::Config(format!("Invalid API URL: {}", e)))
+        join_url(&self.base_url, path, "API")
     }
 
     // ══════════════════════════════════════════════════════════════════
@@ -195,40 +191,32 @@ impl PeopleClient {
     /// out.
     pub async fn list_connections(&self, opts: ListConnectionsOptions) -> Result<Vec<Person>> {
         let batch_size = opts.page_size.clamp(1, MAX_PAGE_SIZE).to_string();
-        let mut all_connections = Vec::new();
-        let mut page_token: Option<String> = None;
+        let query_name = opts.query_name.as_deref();
+        let max = if opts.max_results == 0 {
+            None
+        } else {
+            Some(opts.max_results)
+        };
 
-        loop {
-            let mut request = self.core.get(self.api_url(CONNECTIONS_PATH)?).query(&[
-                ("personFields", READ_PERSON_FIELDS),
-                ("pageSize", batch_size.as_str()),
-            ]);
-
-            if let Some(name) = opts.query_name.as_deref() {
-                request = request.query(&[("queryName", name)]);
+        paginate(max, move |page_token| {
+            let batch_size = batch_size.clone();
+            async move {
+                let params = QueryParams::new()
+                    .add("personFields", READ_PERSON_FIELDS)
+                    .add("pageSize", batch_size.as_str())
+                    .add_optional("queryName", query_name)
+                    .add_page_token(page_token.as_deref());
+                let page: ListConnectionsResponse = self
+                    .core
+                    .execute_json(params.apply(self.core.get(self.api_url(CONNECTIONS_PATH)?)))
+                    .await?;
+                Ok(Page::new(
+                    page.connections.unwrap_or_default(),
+                    page.next_page_token,
+                ))
             }
-            if let Some(token) = page_token.as_deref() {
-                request = request.query(&[("pageToken", token)]);
-            }
-
-            let page: ListConnectionsResponse = self.core.execute(request).await?.json().await?;
-
-            if let Some(page_connections) = page.connections {
-                all_connections.extend(page_connections);
-            }
-
-            if opts.max_results > 0 && all_connections.len() >= opts.max_results {
-                all_connections.truncate(opts.max_results);
-                break;
-            }
-
-            page_token = page.next_page_token;
-            if page_token.is_none() {
-                break;
-            }
-        }
-
-        Ok(all_connections)
+        })
+        .await
     }
 
     /// Prefix-search the authenticated user's own contacts
@@ -312,30 +300,25 @@ impl PeopleClient {
 
     pub async fn list_contact_groups(&self) -> Result<Vec<ContactGroup>> {
         let page_size = MAX_PAGE_SIZE.to_string();
-        let mut groups = Vec::new();
-        let mut page_token: Option<String> = None;
 
-        loop {
-            let mut request = self.core.get(self.api_url(CONTACT_GROUPS_PATH)?).query(&[
-                ("groupFields", GROUP_FIELDS),
-                ("pageSize", page_size.as_str()),
-            ]);
-            if let Some(token) = page_token.as_deref() {
-                request = request.query(&[("pageToken", token)]);
+        paginate(None, move |page_token| {
+            let page_size = page_size.clone();
+            async move {
+                let params = QueryParams::new()
+                    .add("groupFields", GROUP_FIELDS)
+                    .add("pageSize", page_size.as_str())
+                    .add_page_token(page_token.as_deref());
+                let page: ListContactGroupsResponse = self
+                    .core
+                    .execute_json(params.apply(self.core.get(self.api_url(CONTACT_GROUPS_PATH)?)))
+                    .await?;
+                Ok(Page::new(
+                    page.contact_groups.unwrap_or_default(),
+                    page.next_page_token,
+                ))
             }
-
-            let page: ListContactGroupsResponse = self.core.execute(request).await?.json().await?;
-            if let Some(page_groups) = page.contact_groups {
-                groups.extend(page_groups);
-            }
-
-            page_token = page.next_page_token;
-            if page_token.is_none() {
-                break;
-            }
-        }
-
-        Ok(groups)
+        })
+        .await
     }
 
     pub async fn get_contact_group(&self, resource_name: &str) -> Result<ContactGroup> {
@@ -449,55 +432,48 @@ impl PeopleClient {
             validate_resource_name(resource_name, "people")?;
         }
 
-        let mut url = self.api_url(BATCH_GET_PATH)?;
-        {
-            let mut query = url.query_pairs_mut();
-            for resource_name in resource_names {
-                query.append_pair("resourceNames", resource_name);
-            }
-            query.append_pair("personFields", person_fields);
+        let mut params = QueryParams::new();
+        for resource_name in resource_names {
+            params = params.add("resourceNames", resource_name);
         }
+        let request = params
+            .add("personFields", person_fields)
+            .apply(self.core.get(self.api_url(BATCH_GET_PATH)?));
 
-        let request = self.core.get(url);
-        Ok(self.core.execute(request).await?.json().await?)
+        self.core.execute_json(request).await
     }
 
     pub async fn list_other_contacts(&self, max_results: usize) -> Result<Vec<Person>> {
+        let max = if max_results == 0 {
+            None
+        } else {
+            Some(max_results)
+        };
         let page_size = if max_results == 0 {
             MAX_PAGE_SIZE
         } else {
             u32::try_from(max_results.min(MAX_PAGE_SIZE as usize)).unwrap_or(MAX_PAGE_SIZE)
         }
         .to_string();
-        let mut contacts = Vec::new();
-        let mut page_token: Option<String> = None;
 
-        loop {
-            let mut request = self.core.get(self.api_url(OTHER_CONTACTS_PATH)?).query(&[
-                ("readMask", OTHER_CONTACTS_READ_MASK),
-                ("pageSize", page_size.as_str()),
-            ]);
-            if let Some(token) = page_token.as_deref() {
-                request = request.query(&[("pageToken", token)]);
+        paginate(max, move |page_token| {
+            let page_size = page_size.clone();
+            async move {
+                let params = QueryParams::new()
+                    .add("readMask", OTHER_CONTACTS_READ_MASK)
+                    .add("pageSize", page_size.as_str())
+                    .add_page_token(page_token.as_deref());
+                let page: ListOtherContactsResponse = self
+                    .core
+                    .execute_json(params.apply(self.core.get(self.api_url(OTHER_CONTACTS_PATH)?)))
+                    .await?;
+                Ok(Page::new(
+                    page.other_contacts.unwrap_or_default(),
+                    page.next_page_token,
+                ))
             }
-
-            let page: ListOtherContactsResponse = self.core.execute(request).await?.json().await?;
-            if let Some(page_contacts) = page.other_contacts {
-                contacts.extend(page_contacts);
-            }
-
-            if max_results > 0 && contacts.len() >= max_results {
-                contacts.truncate(max_results);
-                break;
-            }
-
-            page_token = page.next_page_token;
-            if page_token.is_none() {
-                break;
-            }
-        }
-
-        Ok(contacts)
+        })
+        .await
     }
 
     pub async fn copy_other_contact_to_my_contacts_group(

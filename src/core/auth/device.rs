@@ -11,7 +11,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::anyhow;
 
-use crate::core::error::{GrrError, Result};
+use crate::core::error::{GrrError, Result, json_error_detail};
 
 use super::TokenStorage;
 
@@ -71,7 +71,11 @@ impl super::GoogleAuth {
 
         if !status.is_success() {
             return Err(GrrError::Auth(
-                anyhow!("device endpoint returned {status}: {}", error_detail(&body)).into(),
+                anyhow!(
+                    "device endpoint returned {status}: {}",
+                    json_error_detail(&body)
+                )
+                .into(),
             ));
         }
 
@@ -145,7 +149,7 @@ impl super::GoogleAuth {
                 }
                 _ => {
                     return Err(GrrError::Auth(
-                        anyhow!("device poll failed: {}", error_detail(&body)).into(),
+                        anyhow!("device poll failed: {}", json_error_detail(&body)).into(),
                     ));
                 }
             }
@@ -196,18 +200,4 @@ pub(crate) fn token_storage_from_response(
         token_type: "Bearer".to_string(),
         scope: scopes.join(" "),
     })
-}
-
-/// Human-readable `error: description` from an OAuth error body.
-pub(crate) fn error_detail(body: &serde_json::Value) -> String {
-    let reason = body["error"]
-        .as_str()
-        .or_else(|| body["error_description"].as_str())
-        .unwrap_or("unknown error");
-    let description = body["error_description"].as_str().unwrap_or("");
-    if description.is_empty() || description == reason {
-        reason.to_string()
-    } else {
-        format!("{reason}: {description}")
-    }
 }

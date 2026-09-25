@@ -17,14 +17,29 @@ cargo build --release --locked
 >
   <section class="page-hero section">
     <div class="container page-hero-grid">
-      <div>
+      <div class="reveal">
         <span class="eyebrow">install grr</span>
         <h1>Pick the shortest path to your shell.</h1>
         <p>Prebuilt binaries are the easy default. If you want a package manager, a crates.io install, or a local build, the project documents each route below.</p>
       </div>
-      <div class="page-hero-aside">one binary · one OAuth login · six services</div>
+      <div class="page-hero-aside reveal">one binary · one OAuth login · six services</div>
     </div>
   </section>
+
+  <div class="command-marquee" aria-label="Install commands">
+    <div class="command-marquee-track">
+      <div class="command-marquee-group">
+        <span>brew install debanjanbasu/tap/grr</span>
+        <span>winget install debanjanbasu.grr</span>
+        <span>cargo install grr-cli --locked</span>
+      </div>
+      <div class="command-marquee-group" aria-hidden="true">
+        <span>brew install debanjanbasu/tap/grr</span>
+        <span>winget install debanjanbasu.grr</span>
+        <span>cargo install grr-cli --locked</span>
+      </div>
+    </div>
+  </div>
 
   <section class="install-section section" aria-labelledby="channels-title">
     <div class="container">
@@ -62,7 +77,7 @@ cargo build --release --locked
 
   <section class="source-section section" aria-labelledby="source-title">
     <div class="container source-grid">
-      <div class="source-copy">
+      <div class="source-copy reveal">
         <span class="eyebrow">from source</span>
         <h2 id="source-title">Build the exact revision you want to run.</h2>
         <p>The repository pins Rust nightly in <code>rust-toolchain.toml</code>. A local clone uses the repository’s Cargo config, which sets the unstable reqwest cfg and the extra build-std settings needed by the CLI.</p>

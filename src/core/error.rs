@@ -10,9 +10,6 @@ pub enum GrrError {
     #[error("HTTP request error: {0}")]
     Http(#[from] reqwest::Error),
 
-    #[error("HTTP/3 error: {0}")]
-    Http3(String),
-
     #[error("JSON serialization error: {0}")]
     Json(#[from] serde_json::Error),
 
@@ -99,3 +96,64 @@ impl GrrError {
 }
 
 pub type Result<T> = std::result::Result<T, GrrError>;
+
+pub(crate) fn api_error(status: u16, body: &str) -> GrrError {
+    let message = serde_json::from_str::<serde_json::Value>(body)
+        .ok()
+        .map(|value| json_error_detail(&value))
+        .filter(|message| message != "unknown error")
+        .unwrap_or_else(|| {
+            let body = body.trim();
+            if body.is_empty() {
+                "HTTP request failed".to_string()
+            } else {
+                body.to_string()
+            }
+        });
+    GrrError::Api { status, message }
+}
+
+pub(crate) fn json_error_detail(body: &serde_json::Value) -> String {
+    let reason = body
+        .get("error")
+        .and_then(|value| {
+            value
+                .as_str()
+                .or_else(|| value.get("message").and_then(serde_json::Value::as_str))
+        })
+        .or_else(|| body.get("message").and_then(serde_json::Value::as_str))
+        .unwrap_or("unknown error");
+    let description = body
+        .get("error_description")
+        .and_then(serde_json::Value::as_str)
+        .or_else(|| body.get("description").and_then(serde_json::Value::as_str))
+        .unwrap_or("");
+    if description.is_empty() || description == reason {
+        reason.to_string()
+    } else {
+        format!("{reason}: {description}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn extracts_google_api_error_messages() {
+        let error = api_error(
+            400,
+            r#"{"error":{"code":400,"message":"invalid query","status":"INVALID_ARGUMENT"}}"#,
+        );
+        assert!(
+            matches!(error, GrrError::Api { status: 400, message } if message == "invalid query")
+        );
+    }
+
+    #[test]
+    fn extracts_oauth_error_details() {
+        let value = json!({"error":"invalid_grant", "error_description":"expired"});
+        assert_eq!(json_error_detail(&value), "invalid_grant: expired");
+    }
+}

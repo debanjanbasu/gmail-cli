@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-labelledby="title desc">
+  <title id="title">Mail glyph</title>
+  <desc id="desc">A generic pixel envelope.</desc>
+  <g shape-rendering="crispEdges" fill="none" stroke="#FF8A3D" stroke-width="4">
+    <path d="M8 16h48v32H8z"/><path d="m8 20 24 20 24-20"/>
+  </g>
+</svg>

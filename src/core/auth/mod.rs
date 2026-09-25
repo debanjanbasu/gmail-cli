@@ -215,7 +215,7 @@ impl GoogleAuth {
                 anyhow!(
                     "token endpoint returned {}: {}",
                     status,
-                    self::device::error_detail(&body)
+                    crate::core::error::json_error_detail(&body)
                 )
                 .into(),
             ));

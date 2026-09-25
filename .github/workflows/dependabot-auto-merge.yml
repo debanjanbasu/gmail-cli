@@ -1,0 +1,38 @@
+name: Dependabot auto-merge
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  dependabot:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Enable auto-merge
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if output="$(gh pr merge "$PR_NUMBER" --squash --auto --delete-branch 2>&1)"; then
+            printf '%s\n' "$output"
+          elif printf '%s\n' "$output" | grep -qi "already enabled"; then
+            printf '%s\n' "$output"
+          else
+            printf '%s\n' "$output" >&2
+            exit 1
+          fi
+      - name: Explain auto-merge
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: gh pr comment "$PR_NUMBER" --body "Auto-merge is enabled. This Dependabot PR will squash-merge after all required checks pass."

@@ -10,12 +10,13 @@ use std::time::Duration;
 
 use reqwest::Client as ReqwestClient;
 use reqwest::header::{ACCEPT_ENCODING, AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue};
+use serde::de::DeserializeOwned;
 use tokio::sync::Semaphore;
 use tracing::{debug, info, warn};
 use url::Url;
 
 use crate::core::auth::GoogleAuth;
-use crate::core::error::{GrrError, Result};
+use crate::core::error::{GrrError, Result, api_error};
 
 // ── Auto-tuned transport constants ────────────────────────────────────────
 
@@ -38,48 +39,81 @@ const RETRY_BACKOFF_MS: u64 = 100;
 /// Never sleep longer than this honoring a 429 Retry-After mid-command.
 const MAX_RATE_LIMIT_WAIT: Duration = Duration::from_secs(30);
 
-/// Whether this build of grr-core has HTTP/3 compiled in. The crate's
-/// own `cfg` is invisible to dependents; this const makes the state
-/// observable for `grr transport` and tests.
-pub const HTTP3_COMPILED: bool = cfg!(feature = "http3");
+#[derive(Default)]
+pub(crate) struct QueryParams {
+    values: Vec<(String, String)>,
+}
 
-/// Transport protocol selection resolved from compile-time features.
-///
-/// Prior-knowledge modes are mutually exclusive: reqwest rejects a client
-/// configured with both HTTP/3 and HTTP/2 prior knowledge.
+impl QueryParams {
+    pub(crate) fn new() -> Self {
+        Self::default()
+    }
+
+    pub(crate) fn add(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.values.push((key.into(), value.into()));
+        self
+    }
+
+    pub(crate) fn add_optional(
+        mut self,
+        key: impl Into<String>,
+        value: Option<impl Into<String>>,
+    ) -> Self {
+        if let Some(value) = value {
+            self.values.push((key.into(), value.into()));
+        }
+        self
+    }
+
+    pub(crate) fn add_page_token(self, token: Option<&str>) -> Self {
+        self.add_optional("pageToken", token)
+    }
+
+    pub(crate) fn apply(self, request: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        request.query(&self.values)
+    }
+}
+
+pub(crate) fn parse_url(raw: &str, kind: &str) -> Result<Url> {
+    Url::parse(raw).map_err(|error| GrrError::Config(format!("Invalid {kind} URL: {error}")))
+}
+
+pub(crate) fn join_url(base: &Url, path: &str, kind: &str) -> Result<Url> {
+    base.join(path)
+        .map_err(|error| GrrError::Config(format!("Invalid {kind} URL: {error}")))
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum TransportMode {
     Http3PriorKnowledge,
     Http2PriorKnowledge,
-    AlpnDefault,
 }
 
-/// Resolve which transport mode the HTTP client should use.
-///
-/// HTTP/3 wins when the `http3` feature is compiled in; otherwise HTTP/2
-/// prior knowledge applies; otherwise ALPN negotiation defaults apply.
-pub fn resolve_transport_mode(
-    enable_http3: bool,
-    http3_feature: bool,
-    enable_http2: bool,
-) -> TransportMode {
-    if enable_http3 && http3_feature {
+pub fn resolve_transport_mode(use_http3: bool) -> TransportMode {
+    if use_http3 {
         TransportMode::Http3PriorKnowledge
-    } else if enable_http2 {
-        TransportMode::Http2PriorKnowledge
     } else {
-        TransportMode::AlpnDefault
+        TransportMode::Http2PriorKnowledge
     }
 }
 
-/// Observed transport negotiation details captured during client
-/// construction.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct TransportInfo {
     pub negotiated_version: String,
     pub http3_requested: bool,
     pub http3_effective: bool,
     pub fell_back: bool,
+}
+
+impl Default for TransportInfo {
+    fn default() -> Self {
+        Self {
+            negotiated_version: "not-probed".into(),
+            http3_requested: true,
+            http3_effective: false,
+            fell_back: false,
+        }
+    }
 }
 
 /// The shared authenticated HTTP engine behind every service client.
@@ -101,55 +135,46 @@ impl HttpCore {
     /// service base URL (any authenticated probe path works; a dead
     /// stored token must not brick construction — `grr auth login`
     /// recovers without one).
-    pub async fn connect(auth: GoogleAuth, base_url: &Url, probe_path: &str) -> Self {
-        let requested = cfg!(feature = "http3");
+    pub async fn connect(auth: GoogleAuth, base_url: &Url, probe_path: &str) -> Result<Self> {
         let mut info = TransportInfo {
-            http3_requested: requested,
-            http3_effective: requested,
-            ..Default::default()
+            http3_requested: true,
+            http3_effective: true,
+            ..TransportInfo::default()
         };
-        let mut http_client = build_http_client();
+        let mut http_client = build_http_client()?;
 
-        if requested {
-            match probe(
-                &http_client,
-                base_url,
-                &auth,
-                reqwest::Version::HTTP_3,
-                probe_path,
-            )
-            .await
-            {
-                Ok(v) => info.negotiated_version = v,
-                Err(e) => {
-                    warn!("HTTP/3 probe failed ({e}); rebuilding without h3");
-                    http_client = build_http_client();
-                    match probe(
-                        &http_client,
-                        base_url,
-                        &auth,
-                        reqwest::Version::HTTP_2,
-                        probe_path,
-                    )
-                    .await
-                    {
-                        Ok(v) => {
-                            info.negotiated_version = v;
-                            info.http3_effective = false;
-                            info.fell_back = true;
-                        }
-                        Err(e) => {
-                            // Offline machine or dead token: continue so
-                            // `grr auth login` can still run.
-                            warn!("HTTP/2 probe failed ({e}); continuing unprobed");
-                            info.negotiated_version = "not-probed".into();
-                            info.http3_effective = false;
-                        }
+        match probe(
+            &http_client,
+            base_url,
+            &auth,
+            reqwest::Version::HTTP_3,
+            probe_path,
+        )
+        .await
+        {
+            Ok(version) => info.negotiated_version = version,
+            Err(GrrError::Auth(error)) => return Err(GrrError::Auth(error)),
+            Err(error) => {
+                warn!("HTTP/3 probe failed ({error}); rebuilding with HTTP/2");
+                info.http3_effective = false;
+                info.fell_back = true;
+                http_client = build_http_client_with_mode(TransportMode::Http2PriorKnowledge)?;
+                match probe(
+                    &http_client,
+                    base_url,
+                    &auth,
+                    reqwest::Version::HTTP_2,
+                    probe_path,
+                )
+                .await
+                {
+                    Ok(version) => info.negotiated_version = version,
+                    Err(error) => {
+                        warn!("HTTP/2 probe failed ({error}); continuing unprobed");
+                        info.negotiated_version = "not-probed".into();
                     }
                 }
             }
-        } else {
-            info.negotiated_version = "not-probed".into();
         }
 
         info!(
@@ -157,12 +182,12 @@ impl HttpCore {
             probe_path, info.negotiated_version, info.http3_effective, MAX_INFLIGHT_REQUESTS
         );
 
-        Self {
+        Ok(Self {
             auth: Arc::new(auth),
             http_client,
             semaphore: Arc::new(Semaphore::new(MAX_INFLIGHT_REQUESTS)),
             transport_info: info,
-        }
+        })
     }
 
     /// Core assembled without probing (test injection: custom client, mock
@@ -174,7 +199,7 @@ impl HttpCore {
             semaphore: Arc::new(Semaphore::new(MAX_INFLIGHT_REQUESTS)),
             transport_info: TransportInfo {
                 negotiated_version: "not-probed".into(),
-                http3_requested: HTTP3_COMPILED,
+                http3_requested: true,
                 http3_effective: false,
                 fell_back: false,
             },
@@ -315,17 +340,12 @@ impl HttpCore {
                             return Err(GrrError::NotFound("Resource not found".into()));
                         }
                         500..=599 => {
-                            last_error = Some(GrrError::Api {
-                                status: status.as_u16(),
-                                message: "Server error".into(),
-                            });
+                            let body = resp.text().await.unwrap_or_default();
+                            last_error = Some(api_error(status.as_u16(), &body));
                         }
                         _ => {
                             let error_text = resp.text().await.unwrap_or_default();
-                            return Err(GrrError::Api {
-                                status: status.as_u16(),
-                                message: error_text,
-                            });
+                            return Err(api_error(status.as_u16(), &error_text));
                         }
                     }
                 }
@@ -351,6 +371,14 @@ impl HttpCore {
         }
 
         Err(last_error.unwrap_or_else(|| GrrError::Internal("Max retries exceeded".into())))
+    }
+
+    pub(crate) async fn execute_json<T>(&self, request: reqwest::RequestBuilder) -> Result<T>
+    where
+        T: DeserializeOwned,
+    {
+        let response = self.execute(request).await?;
+        Ok(response.json().await?)
     }
 }
 
@@ -398,7 +426,11 @@ async fn probe(
 ///
 /// Zero-config: every value is a constant tuned for Google frontends and
 /// bounded async I/O; the tokio runtime already sizes OS threads to cores.
-pub fn build_http_client() -> ReqwestClient {
+pub fn build_http_client() -> Result<ReqwestClient> {
+    build_http_client_with_mode(resolve_transport_mode(true))
+}
+
+fn build_http_client_with_mode(mode: TransportMode) -> Result<ReqwestClient> {
     let mut builder = ReqwestClient::builder()
         .timeout(REQUEST_TIMEOUT)
         .connect_timeout(CONNECT_TIMEOUT)
@@ -407,25 +439,14 @@ pub fn build_http_client() -> ReqwestClient {
         .tcp_keepalive(TCP_KEEPALIVE)
         .http2_keep_alive_interval(H2_KEEPALIVE_INTERVAL)
         .http2_adaptive_window(true)
-        // Always on: Google frontends send gzip regardless of toggles, and
-        // advertising an encoding without decoding it hands raw compressed
-        // bytes to serde ("expected value at line 1 column 1").
         .brotli(true)
         .zstd(true)
         .gzip(true);
 
-    match resolve_transport_mode(cfg!(feature = "http3"), cfg!(feature = "http3"), true) {
-        TransportMode::Http3PriorKnowledge => {
-            #[cfg(feature = "http3")]
-            {
-                builder = builder.http3_prior_knowledge();
-            }
-        }
-        TransportMode::Http2PriorKnowledge => {
-            builder = builder.http2_prior_knowledge();
-        }
-        TransportMode::AlpnDefault => {}
-    }
+    builder = match mode {
+        TransportMode::Http3PriorKnowledge => builder.http3_prior_knowledge(),
+        TransportMode::Http2PriorKnowledge => builder.http2_prior_knowledge(),
+    };
 
     let mut headers = HeaderMap::new();
     headers.insert(
@@ -433,8 +454,31 @@ pub fn build_http_client() -> ReqwestClient {
         HeaderValue::from_static("zstd, br, gzip, deflate"),
     );
     headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-    builder = builder.default_headers(headers);
 
-    #[allow(clippy::expect_used)]
-    builder.build().expect("Failed to build HTTP client")
+    builder
+        .default_headers(headers)
+        .build()
+        .map_err(|error| GrrError::Config(format!("Failed to build HTTP client: {error}")))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn query_params_collects_optional_values_and_page_tokens() -> Result<()> {
+        let request = QueryParams::new()
+            .add("q", "in:inbox")
+            .add_optional("labelId", Some("INBOX"))
+            .add_optional("timeMin", None::<&str>)
+            .add_page_token(Some("next"))
+            .apply(ReqwestClient::new().get("https://example.com/messages"))
+            .build()?;
+
+        assert_eq!(
+            request.url().query(),
+            Some("q=in%3Ainbox&labelId=INBOX&pageToken=next")
+        );
+        Ok(())
+    }
 }

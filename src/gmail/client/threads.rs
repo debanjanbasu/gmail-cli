@@ -1,6 +1,8 @@
 //! Thread operations
 
 use crate::core::error::Result;
+use crate::core::http::QueryParams;
+use crate::core::{Page, paginate};
 use crate::gmail::models::*;
 
 impl super::GmailClient {
@@ -12,34 +14,20 @@ impl super::GmailClient {
         if max_results == 0 {
             return Ok(Vec::new());
         }
-
-        let mut threads = Vec::new();
-        let mut page_token = None;
         let batch_size = max_results.min(500);
 
-        loop {
-            let mut request = self
+        paginate(Some(max_results), move |page_token| async move {
+            let params = QueryParams::new()
+                .add("q", query)
+                .add("maxResults", batch_size.to_string())
+                .add_page_token(page_token.as_deref());
+            let page: ThreadList = self
                 .core
-                .get(self.api_url("users/me/threads")?)
-                .query(&[("q", query), ("maxResults", &batch_size.to_string())]);
-            if let Some(token) = &page_token {
-                request = request.query(&[("pageToken", token)]);
-            }
-
-            let response = self.core.execute(request).await?;
-            let list: ThreadList = response.json().await?;
-            threads.extend(list.threads);
-            if threads.len() >= max_results {
-                threads.truncate(max_results);
-                break;
-            }
-            page_token = list.next_page_token;
-            if page_token.is_none() {
-                break;
-            }
-        }
-
-        Ok(threads)
+                .execute_json(params.apply(self.core.get(self.api_url("users/me/threads")?)))
+                .await?;
+            Ok(Page::new(page.threads, page.next_page_token))
+        })
+        .await
     }
 
     /// Get thread by ID

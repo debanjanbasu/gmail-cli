@@ -5,7 +5,7 @@ export const prerender = true;
 const pages = ['', 'install/', 'privacy/', 'terms/'];
 
 export const GET: APIRoute = ({ site }) => {
-  const origin = site ?? new URL('https://debanjanbasu.github.io');
+  const origin = site ?? new URL('https://grr-cli.pages.dev');
   const configuredBase = import.meta.env.BASE_URL;
   const root = configuredBase.endsWith('/') ? configuredBase : `${configuredBase}/`;
   const body = pages

@@ -5,11 +5,17 @@ on:
     tags: ["v*"]
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build:
     name: build (${{ matrix.target.name }})
+    runs-on: ${{ matrix.target.os }}
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -23,37 +29,32 @@ jobs:
           - name: macos-aarch64
             os: macos-latest
             artifact: grr
-    runs-on: ${{ matrix.target.os }}
     steps:
-      - uses: actions/checkout@v4
-
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src
-
       - uses: Swatinem/rust-cache@v2
-
-      # .cargo/config.toml injects --cfg reqwest_unstable (http3 is why we're
-      # on nightly) for each of these host targets — no RUSTFLAGS needed.
       - name: Build release binary
-        run: cargo build --release --locked -p grr-cli
-
+        run: cargo build --release --locked
       - name: Archive (unix)
         if: runner.os != 'Windows'
         run: tar czf "grr-${{ github.ref_name }}-${{ matrix.target.name }}.tar.gz" -C target/release "${{ matrix.target.artifact }}"
-
       - name: Archive (windows)
         if: runner.os == 'Windows'
         run: Compress-Archive -Path target/release/${{ matrix.target.artifact }} -DestinationPath "grr-${{ github.ref_name }}-${{ matrix.target.name }}.zip"
-
       - uses: actions/upload-artifact@v4
         with:
           name: grr-${{ github.ref_name }}-${{ matrix.target.name }}
           path: grr-${{ github.ref_name }}-${{ matrix.target.name }}.*
 
   release:
+    name: create release
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:

@@ -1,29 +1,30 @@
 ﻿//! Transport selection unit tests for the shared HTTP core.
 
-use grr_cli::core::http::{TransportMode, apply_transport_version, resolve_transport_mode};
+use grr_cli::core::http::{
+    TransportInfo, TransportMode, apply_transport_version, resolve_transport_mode,
+};
 
 #[test]
-fn h3_requested_with_feature_enabled_wins_over_h2() {
+fn h3_mode_is_selected_for_the_unconditional_transport() {
     assert_eq!(
-        resolve_transport_mode(true, true, true),
+        resolve_transport_mode(true),
         TransportMode::Http3PriorKnowledge
     );
 }
 
 #[test]
-fn h3_without_feature_falls_back_to_h2() {
+fn h2_mode_is_used_only_for_runtime_fallback() {
     assert_eq!(
-        resolve_transport_mode(true, false, true),
+        resolve_transport_mode(false),
         TransportMode::Http2PriorKnowledge
     );
 }
 
 #[test]
-fn neither_requested_yields_alpn_default() {
-    assert_eq!(
-        resolve_transport_mode(false, false, false),
-        TransportMode::AlpnDefault
-    );
+fn default_transport_info_requests_http3() {
+    let info = TransportInfo::default();
+    assert!(info.http3_requested);
+    assert!(!info.http3_effective);
 }
 
 #[test]

@@ -1,6 +1,6 @@
 //! High-performance Google Drive client: typed endpoints over [`HttpCore`].
 //!
-//! Transport, retry, rate-valving, and OAuth live in grr-core; this crate
+//! Transport, retry, rate-valving, and OAuth live in core; this module
 //! adds Drive's URL space, models, pagination, streaming media transfer, and
 //! streaming multipart upload.
 
@@ -18,8 +18,9 @@ use url::Url;
 
 use crate::core::auth::{DeviceAuthChallenge, GoogleAuth, TokenStorage};
 use crate::core::error::{GrrError, Result};
-use crate::core::http::{HttpCore, TransportInfo};
+use crate::core::http::{HttpCore, QueryParams, TransportInfo, join_url, parse_url};
 use crate::core::runtime::detect_runtime_features;
+use crate::core::{Page, paginate};
 
 use crate::drive::models::*;
 
@@ -78,21 +79,19 @@ impl DriveClientBuilder {
         let has_base_override = self.base_url.is_some();
         let base_url = match self.base_url {
             Some(url) => url,
-            None => Url::parse(DEFAULT_BASE_URL)
-                .map_err(|e| GrrError::Config(format!("Invalid base URL: {}", e)))?,
+            None => parse_url(DEFAULT_BASE_URL, "base")?,
         };
         let upload_base_url = match self.upload_base_url {
             Some(url) => url,
-            None => Url::parse(DEFAULT_UPLOAD_BASE_URL)
-                .map_err(|e| GrrError::Config(format!("Invalid upload URL: {}", e)))?,
+            None => parse_url(DEFAULT_UPLOAD_BASE_URL, "upload base")?,
         };
 
         let core = if has_base_override {
-            HttpCore::unprobed(auth, crate::core::http::build_http_client())
+            HttpCore::unprobed(auth, crate::core::http::build_http_client()?)
         } else {
-            HttpCore::connect(auth, &base_url, PROBE_PATH).await
+            HttpCore::connect(auth, &base_url, PROBE_PATH).await?
         };
-        DriveClient::new(core, base_url, upload_base_url)
+        DriveClient::new(core, base_url, upload_base_url).await
     }
 }
 
@@ -124,11 +123,11 @@ fn page_size(max_results: usize, maximum: usize) -> usize {
 
 impl DriveClient {
     /// Create new client from a connected core (test injection point).
-    pub fn new(core: HttpCore, base_url: Url, upload_base_url: Url) -> Result<Self> {
-        let features = detect_runtime_features();
+    pub async fn new(core: HttpCore, base_url: Url, upload_base_url: Url) -> Result<Self> {
+        let features = detect_runtime_features().await;
         info!(
-            "DriveClient initialized: http3={}, io_uring={}",
-            features.http3, features.io_uring
+            "DriveClient initialized: http3=always, io_uring={}",
+            features.io_uring
         );
         Ok(Self {
             core,
@@ -177,15 +176,11 @@ impl DriveClient {
     }
 
     fn api_url(&self, path: &str) -> Result<Url> {
-        self.base_url
-            .join(path)
-            .map_err(|e| GrrError::Config(format!("Invalid API URL: {}", e)))
+        join_url(&self.base_url, path, "API")
     }
 
     fn upload_url(&self, path: &str) -> Result<Url> {
-        self.upload_base_url
-            .join(path)
-            .map_err(|e| GrrError::Config(format!("Invalid upload URL: {}", e)))
+        join_url(&self.upload_base_url, path, "upload")
     }
 
     fn file_url(&self, file_id: &str) -> Result<Url> {
@@ -233,38 +228,26 @@ impl DriveClient {
     }
 
     pub async fn list_files(&self, opts: FileListOptions) -> Result<Vec<File>> {
-        let mut all_files = Vec::new();
-        let mut page_token: Option<String> = None;
+        let max = if opts.max_results == 0 {
+            None
+        } else {
+            Some(opts.max_results)
+        };
+        let q = opts.q.as_deref();
         let batch_size = page_size(opts.max_results, MAX_PAGE_SIZE);
 
-        loop {
-            let mut request = self
+        paginate(max, move |page_token| async move {
+            let params = QueryParams::new()
+                .add("pageSize", batch_size.to_string())
+                .add_optional("q", q)
+                .add_page_token(page_token.as_deref());
+            let page: FileList = self
                 .core
-                .get(self.api_url("files")?)
-                .query(&[("pageSize", &batch_size.to_string())]);
-
-            if let Some(q) = &opts.q {
-                request = request.query(&[("q", q)]);
-            }
-            if let Some(token) = &page_token {
-                request = request.query(&[("pageToken", token)]);
-            }
-
-            let response = self.core.execute(request).await?;
-            let page: FileList = response.json().await?;
-            all_files.extend(page.files);
-            if opts.max_results > 0 && all_files.len() >= opts.max_results {
-                all_files.truncate(opts.max_results);
-                break;
-            }
-
-            page_token = page.next_page_token;
-            if page_token.is_none() {
-                break;
-            }
-        }
-
-        Ok(all_files)
+                .execute_json(params.apply(self.core.get(self.api_url("files")?)))
+                .await?;
+            Ok(Page::new(page.files, page.next_page_token))
+        })
+        .await
     }
 
     pub async fn get_file(&self, file_id: &str) -> Result<File> {
@@ -469,35 +452,30 @@ impl DriveClient {
         file_id: &str,
         max_results: usize,
     ) -> Result<Vec<Permission>> {
-        let mut all_permissions = Vec::new();
-        let mut page_token: Option<String> = None;
+        let max = if max_results == 0 {
+            None
+        } else {
+            Some(max_results)
+        };
         let batch_size = page_size(max_results, MAX_SUBRESOURCE_PAGE_SIZE);
 
-        loop {
-            let mut request = self
+        paginate(max, move |page_token| async move {
+            let params = QueryParams::new()
+                .add("pageSize", batch_size.to_string())
+                .add("fields", PERMISSION_FIELDS)
+                .add_page_token(page_token.as_deref());
+            let page: PermissionList = self
                 .core
-                .get(self.file_collection_url(file_id, "permissions")?)
-                .query(&[("pageSize", &batch_size.to_string())])
-                .query(&[("fields", PERMISSION_FIELDS)]);
-            if let Some(token) = &page_token {
-                request = request.query(&[("pageToken", token)]);
-            }
-
-            let response = self.core.execute(request).await?;
-            let page: PermissionList = response.json().await?;
-            all_permissions.extend(page.permissions);
-            if max_results > 0 && all_permissions.len() >= max_results {
-                all_permissions.truncate(max_results);
-                break;
-            }
-
-            page_token = page.next_page_token;
-            if page_token.is_none() {
-                break;
-            }
-        }
-
-        Ok(all_permissions)
+                .execute_json(
+                    params.apply(
+                        self.core
+                            .get(self.file_collection_url(file_id, "permissions")?),
+                    ),
+                )
+                .await?;
+            Ok(Page::new(page.permissions, page.next_page_token))
+        })
+        .await
     }
 
     pub async fn create_permission(
@@ -548,35 +526,30 @@ impl DriveClient {
     }
 
     pub async fn list_comments(&self, file_id: &str, max_results: usize) -> Result<Vec<Comment>> {
-        let mut all_comments = Vec::new();
-        let mut page_token: Option<String> = None;
+        let max = if max_results == 0 {
+            None
+        } else {
+            Some(max_results)
+        };
         let batch_size = page_size(max_results, MAX_SUBRESOURCE_PAGE_SIZE);
 
-        loop {
-            let mut request = self
+        paginate(max, move |page_token| async move {
+            let params = QueryParams::new()
+                .add("pageSize", batch_size.to_string())
+                .add("fields", COMMENT_LIST_FIELDS)
+                .add_page_token(page_token.as_deref());
+            let page: CommentList = self
                 .core
-                .get(self.file_collection_url(file_id, "comments")?)
-                .query(&[("pageSize", &batch_size.to_string())])
-                .query(&[("fields", COMMENT_LIST_FIELDS)]);
-            if let Some(token) = &page_token {
-                request = request.query(&[("pageToken", token)]);
-            }
-
-            let response = self.core.execute(request).await?;
-            let page: CommentList = response.json().await?;
-            all_comments.extend(page.comments);
-            if max_results > 0 && all_comments.len() >= max_results {
-                all_comments.truncate(max_results);
-                break;
-            }
-
-            page_token = page.next_page_token;
-            if page_token.is_none() {
-                break;
-            }
-        }
-
-        Ok(all_comments)
+                .execute_json(
+                    params.apply(
+                        self.core
+                            .get(self.file_collection_url(file_id, "comments")?),
+                    ),
+                )
+                .await?;
+            Ok(Page::new(page.comments, page.next_page_token))
+        })
+        .await
     }
 
     pub async fn get_comment(&self, file_id: &str, comment_id: &str) -> Result<Comment> {
@@ -615,35 +588,30 @@ impl DriveClient {
     }
 
     pub async fn list_revisions(&self, file_id: &str, max_results: usize) -> Result<Vec<Revision>> {
-        let mut all_revisions = Vec::new();
-        let mut page_token: Option<String> = None;
+        let max = if max_results == 0 {
+            None
+        } else {
+            Some(max_results)
+        };
         let batch_size = page_size(max_results, MAX_SUBRESOURCE_PAGE_SIZE);
 
-        loop {
-            let mut request = self
+        paginate(max, move |page_token| async move {
+            let params = QueryParams::new()
+                .add("pageSize", batch_size.to_string())
+                .add("fields", REVISION_LIST_FIELDS)
+                .add_page_token(page_token.as_deref());
+            let page: RevisionList = self
                 .core
-                .get(self.file_collection_url(file_id, "revisions")?)
-                .query(&[("pageSize", &batch_size.to_string())])
-                .query(&[("fields", REVISION_LIST_FIELDS)]);
-            if let Some(token) = &page_token {
-                request = request.query(&[("pageToken", token)]);
-            }
-
-            let response = self.core.execute(request).await?;
-            let page: RevisionList = response.json().await?;
-            all_revisions.extend(page.revisions);
-            if max_results > 0 && all_revisions.len() >= max_results {
-                all_revisions.truncate(max_results);
-                break;
-            }
-
-            page_token = page.next_page_token;
-            if page_token.is_none() {
-                break;
-            }
-        }
-
-        Ok(all_revisions)
+                .execute_json(
+                    params.apply(
+                        self.core
+                            .get(self.file_collection_url(file_id, "revisions")?),
+                    ),
+                )
+                .await?;
+            Ok(Page::new(page.revisions, page.next_page_token))
+        })
+        .await
     }
 
     pub async fn get_revision(&self, file_id: &str, revision_id: &str) -> Result<Revision> {

@@ -18,32 +18,52 @@ const base = import.meta.env.BASE_URL;
 <section class="stats-section section" aria-labelledby="stats-title">
   <div class="container">
     <div class="section-heading stats-heading">
-      <span class="eyebrow">public pulse</span>
-      <h2 id="stats-title">Small binary.<br />Real reach.</h2>
+      <div>
+        <span class="eyebrow">public pulse</span>
+        <h2 id="stats-title">Small binary.<br />Real reach.</h2>
+      </div>
       <p>Build-time numbers from the public package and release channels, with a quiet optional refresh in your browser.</p>
     </div>
     <div class="stats-grid" aria-live="polite">
+      <article class="stat-card">
+        <span class="stat-label">package version</span>
+        <strong class="stat-value" data-stat="version">v{stats.version}</strong>
+        <span class="stat-detail">the current published line</span>
+      </article>
       <article class="stat-card">
         <span class="stat-label">crates.io downloads</span>
         <strong class="stat-value" data-stat="crateDownloads">{formatCount(stats.crateDownloads)}</strong>
         <span class="stat-detail"><span data-stat="crateDownloads30d">{formatCount(stats.crateDownloads30d)}</span> in the last 30 days</span>
       </article>
       <article class="stat-card">
-        <span class="stat-label">GitHub asset downloads</span>
-        <strong class="stat-value" data-stat="githubDownloads">{formatCount(stats.githubDownloads)}</strong>
-        <span class="stat-detail">across all public releases</span>
+        <span class="stat-label">platforms</span>
+        <strong class="stat-value">3</strong>
+        <span class="stat-detail">macOS · Linux · Windows</span>
       </article>
       <article class="stat-card">
-        <span class="stat-label">latest release</span>
-        <strong class="stat-value stat-release" data-stat="latestRelease">{stats.latestRelease || '—'}</strong>
-        <span class="stat-detail" data-stat="latestReleaseDate">{formatDate(stats.latestReleaseDate)}</span>
+        <span class="stat-label">services</span>
+        <strong class="stat-value">6</strong>
+        <span class="stat-detail">one namespaced binary</span>
       </article>
+    </div>
+    <div class="stats-release-strip" aria-label="Release snapshot">
+      <div>
+        <span class="stat-label">latest release</span>
+        <strong data-stat="latestRelease">{stats.latestRelease || '—'}</strong>
+        <time data-stat="latestReleaseDate" datetime={stats.latestReleaseDate}>{formatDate(stats.latestReleaseDate)}</time>
+      </div>
+      <div>
+        <span class="stat-label">GitHub asset downloads</span>
+        <strong data-stat="githubDownloads">{formatCount(stats.githubDownloads)}</strong>
+        <span>across all public releases</span>
+      </div>
     </div>
     <div class="stats-footnote">
       <span class="status-dot" aria-hidden="true"></span>
       <span>Snapshot refreshed <time data-stat="updatedAt" datetime={stats.updatedAt}>{formatDate(stats.updatedAt)}</time></span>
       <a href={`${base}install/`}>Install the binary <span aria-hidden="true">→</span></a>
     </div>
+    <noscript><p class="stats-noscript">Live refresh is off. These are the build-time public snapshot values.</p></noscript>
   </div>
 </section>
 

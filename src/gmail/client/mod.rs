@@ -9,8 +9,9 @@ use url::Url;
 
 use crate::core::auth::{DeviceAuthChallenge, GoogleAuth, TokenStorage};
 use crate::core::error::{GrrError, Result};
-use crate::core::http::{HttpCore, TransportInfo};
+use crate::core::http::{HttpCore, QueryParams, TransportInfo, join_url, parse_url};
 use crate::core::runtime::detect_runtime_features;
+use crate::core::{Page, paginate};
 
 use crate::gmail::models::*;
 
@@ -58,23 +59,19 @@ impl GmailClientBuilder {
         let has_base_override = self.base_url.is_some();
         let base_url = match self.base_url {
             Some(url) => url,
-            None => Url::parse(DEFAULT_BASE_URL)
-                .map_err(|e| GrrError::Config(format!("Invalid base URL: {}", e)))?,
+            None => parse_url(DEFAULT_BASE_URL, "base")?,
         };
         let upload_base_url = match self.upload_base_url {
             Some(url) => url,
-            None => Url::parse(DEFAULT_UPLOAD_BASE_URL)
-                .map_err(|e| GrrError::Config(format!("Invalid upload base URL: {}", e)))?,
+            None => parse_url(DEFAULT_UPLOAD_BASE_URL, "upload base")?,
         };
 
         let core = if has_base_override {
-            // Explicit base URL (test injection): skip the transport probe —
-            // mock servers speak HTTP/1.1 and QUIC packets would just time out.
-            HttpCore::unprobed(auth, crate::core::http::build_http_client())
+            HttpCore::unprobed(auth, crate::core::http::build_http_client()?)
         } else {
-            HttpCore::connect(auth, &base_url, "users/me/profile").await
+            HttpCore::connect(auth, &base_url, "users/me/profile").await?
         };
-        GmailClient::new(core, base_url, upload_base_url)
+        GmailClient::new(core, base_url, upload_base_url).await
     }
 }
 
@@ -94,11 +91,11 @@ pub struct GmailClient {
 
 impl GmailClient {
     /// Create new client from a connected core (test injection point).
-    pub fn new(core: HttpCore, base_url: Url, upload_base_url: Url) -> Result<Self> {
-        let features = detect_runtime_features();
+    pub async fn new(core: HttpCore, base_url: Url, upload_base_url: Url) -> Result<Self> {
+        let features = detect_runtime_features().await;
         info!(
-            "GmailClient initialized: http3={}, io_uring={}",
-            features.http3, features.io_uring
+            "GmailClient initialized: http3=always, io_uring={}",
+            features.io_uring
         );
         Ok(Self {
             core,
@@ -143,9 +140,7 @@ impl GmailClient {
 
     /// Build API URL with proper error handling
     fn api_url(&self, path: &str) -> Result<Url> {
-        self.base_url
-            .join(path)
-            .map_err(|e| GrrError::Config(format!("Invalid API URL: {}", e)))
+        join_url(&self.base_url, path, "API")
     }
 
     // ══════════════════════════════════════════════════════════════════
@@ -154,36 +149,20 @@ impl GmailClient {
 
     /// Search messages with automatic pagination up to `max_results`.
     pub async fn search(&self, query: &str, max_results: usize) -> Result<Vec<MessageRef>> {
-        let mut all_messages = Vec::new();
-        let mut page_token: Option<String> = None;
         let batch_size = max_results.min(500);
 
-        loop {
-            let mut request = self
+        paginate(Some(max_results), move |page_token| async move {
+            let params = QueryParams::new()
+                .add("q", query)
+                .add("maxResults", batch_size.to_string())
+                .add_page_token(page_token.as_deref());
+            let page: SearchResponse = self
                 .core
-                .get(self.api_url("users/me/messages")?)
-                .query(&[("q", query), ("maxResults", &batch_size.to_string())]);
-
-            if let Some(token) = &page_token {
-                request = request.query(&[("pageToken", token)]);
-            }
-
-            let response = self.core.execute(request).await?;
-            let search_response: SearchResponse = response.json().await?;
-
-            all_messages.extend(search_response.messages);
-            if all_messages.len() >= max_results {
-                all_messages.truncate(max_results);
-                break;
-            }
-
-            page_token = search_response.next_page_token;
-            if page_token.is_none() {
-                break;
-            }
-        }
-
-        Ok(all_messages)
+                .execute_json(params.apply(self.core.get(self.api_url("users/me/messages")?)))
+                .await?;
+            Ok(Page::new(page.messages, page.next_page_token))
+        })
+        .await
     }
 }
 

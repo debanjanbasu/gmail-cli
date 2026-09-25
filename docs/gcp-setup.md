@@ -66,10 +66,10 @@ Open <https://console.cloud.google.com/apis/credentials/consent>:
 1. User type: **External**
 2. Fill in the minimal form. Use **Rust Rewrite** as the app name, choose a support email, and upload the orange crab logo from [`assets/logo.svg`](../assets/logo.svg). The project/fork is still **Google Rust Rewrite**; **Rust Rewrite** is the name shown by Google's consent screen.
 3. Use the project's public URLs when the form asks for them:
-   - Homepage: <https://debanjanbasu.github.io/grr-cli/>
-   - Privacy policy: <https://debanjanbasu.github.io/grr-cli/privacy/>
-   - Terms: <https://debanjanbasu.github.io/grr-cli/terms/>
-4. Add `debanjanbasu.github.io` as the authorized domain.
+   - Homepage: <https://grr-cli.pages.dev/>
+   - Privacy policy: <https://grr-cli.pages.dev/privacy/>
+   - Terms: <https://grr-cli.pages.dev/terms/>
+4. Add `grr-cli.pages.dev` as the authorized domain.
 5. Add the Google account you will sign in with as a **Test user**.
 
 One login covers every `grr` service, so the consent screen will ask for all of them — Gmail (read/compose/modify/labels), Calendar, Drive, Contacts, Chat (messages/spaces/memberships/reactions), and Forms (body/responses) — even if you only plan to use one. Enable the matching APIs (step 4) for the services you use.

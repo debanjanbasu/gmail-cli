@@ -4,7 +4,7 @@ const base = import.meta.env.BASE_URL;
 
 <footer class="site-footer">
   <div class="container footer-grid">
-    <div>
+    <div class="footer-identity">
       <a class="footer-brand" href={base}>
         <img src={`${base}logo.svg`} alt="" width="64" height="64" />
         <span>grr</span>
@@ -14,6 +14,7 @@ const base = import.meta.env.BASE_URL;
     <div class="footer-links" aria-label="Footer navigation">
       <div>
         <span class="footer-label">Explore</span>
+        <a href={base}>Overview</a>
         <a href={`${base}install/`}>Install</a>
         <a href="https://crates.io/crates/grr-cli" target="_blank" rel="noreferrer">crates.io ↗</a>
         <a href="https://docs.rs/grr-cli" target="_blank" rel="noreferrer">API docs ↗</a>
@@ -29,5 +30,6 @@ const base = import.meta.env.BASE_URL;
   <div class="container footer-bottom">
     <p>grr is an independent project and is not affiliated with, sponsored by, or endorsed by Google LLC.</p>
     <p>MIT licensed · built for the terminal</p>
+    <p class="footer-fonts">Departure Mono · Silkscreen · VT323 / SIL OFL 1.1</p>
   </div>
 </footer>

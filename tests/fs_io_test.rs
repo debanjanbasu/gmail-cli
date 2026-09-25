@@ -28,7 +28,7 @@ async fn write_creates_parent_dirs_and_empty_payload_works() {
 #[cfg(target_os = "linux")]
 #[tokio::test]
 async fn io_uring_backend_round_trips_when_available() {
-    if !grr_cli::core::runtime::has_io_uring() {
+    if !grr_cli::core::runtime::has_io_uring().await {
         return;
     }
     let dir = tempfile::tempdir().unwrap();

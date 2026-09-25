@@ -1,0 +1,77 @@
+version: 2
+updates:
+  # Every version bump is proposed, majors included, and auto-merged once CI is
+  # green (see .github/workflows/dependabot-auto-merge.yml). Groups only keep
+  # the PR count sane; they never filter out a version type.
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 20
+    versioning-strategy: increase
+    labels:
+      - dependencies
+      - rust
+    groups:
+      rust-patches:
+        patterns:
+          - "*"
+        update-types:
+          - patch
+      rust-minors:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+      rust-majors:
+        patterns:
+          - "*"
+        update-types:
+          - major
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 20
+    versioning-strategy: increase
+    labels:
+      - dependencies
+      - github-actions
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+
+  - package-ecosystem: npm
+    directory: /site
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 20
+    versioning-strategy: increase
+    labels:
+      - dependencies
+      - npm
+    groups:
+      astro-stack:
+        patterns:
+          - astro
+          - "@astrojs/*"
+      typescript-updates:
+        patterns:
+          - typescript
+      npm-majors:
+        patterns:
+          - "*"
+        update-types:
+          - major
+      npm-minors:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+      npm-patches:
+        patterns:
+          - "*"
+        update-types:
+          - patch

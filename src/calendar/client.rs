@@ -1,6 +1,5 @@
 //! High-performance Google Calendar client: typed endpoints over [`HttpCore`].
 
-use std::future::Future;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Serialize;
@@ -9,8 +8,9 @@ use url::Url;
 
 use crate::core::auth::{DeviceAuthChallenge, GoogleAuth, TokenStorage};
 use crate::core::error::{GrrError, Result};
-use crate::core::http::{HttpCore, TransportInfo};
+use crate::core::http::{HttpCore, QueryParams, TransportInfo, join_url, parse_url};
 use crate::core::runtime::detect_runtime_features;
+use crate::core::{Page, paginate};
 
 use crate::calendar::models::*;
 
@@ -47,16 +47,15 @@ impl CalendarClientBuilder {
         let has_base_override = self.base_url.is_some();
         let base_url = match self.base_url {
             Some(url) => url,
-            None => Url::parse(DEFAULT_BASE_URL)
-                .map_err(|e| GrrError::Config(format!("Invalid base URL: {}", e)))?,
+            None => parse_url(DEFAULT_BASE_URL, "base")?,
         };
 
         let core = if has_base_override {
-            HttpCore::unprobed(auth, crate::core::http::build_http_client())
+            HttpCore::unprobed(auth, crate::core::http::build_http_client()?)
         } else {
-            HttpCore::connect(auth, &base_url, PROBE_PATH).await
+            HttpCore::connect(auth, &base_url, PROBE_PATH).await?
         };
-        CalendarClient::new(core, base_url)
+        CalendarClient::new(core, base_url).await
     }
 }
 
@@ -73,11 +72,11 @@ pub struct CalendarClient {
 }
 
 impl CalendarClient {
-    pub fn new(core: HttpCore, base_url: Url) -> Result<Self> {
-        let features = detect_runtime_features();
+    pub async fn new(core: HttpCore, base_url: Url) -> Result<Self> {
+        let features = detect_runtime_features().await;
         info!(
-            "CalendarClient initialized: http3={}, io_uring={}",
-            features.http3, features.io_uring
+            "CalendarClient initialized: http3=always, io_uring={}",
+            features.io_uring
         );
         Ok(Self { core, base_url })
     }
@@ -114,9 +113,7 @@ impl CalendarClient {
     }
 
     fn api_url(&self, path: &str) -> Result<Url> {
-        self.base_url
-            .join(path)
-            .map_err(|e| GrrError::Config(format!("Invalid API URL: {}", e)))
+        join_url(&self.base_url, path, "API")
     }
 
     fn calendar_url(&self, calendar_id: &str) -> Result<Url> {
@@ -184,20 +181,17 @@ impl CalendarClient {
     }
 
     pub async fn list_calendars(&self, max: Option<usize>) -> Result<Vec<CalendarListEntry>> {
-        let batch_size = max.map_or(250, |m| m.min(250));
+        let batch_size = max.map_or(250, |value| value.min(250));
 
         paginate(max, move |page_token| async move {
-            let mut request = self
+            let query = QueryParams::new()
+                .add("maxResults", batch_size.to_string())
+                .add_page_token(page_token.as_deref());
+            let page: CalendarList = self
                 .core
-                .get(self.api_url("users/me/calendarList")?)
-                .query(&[("maxResults", &batch_size.to_string())]);
-
-            if let Some(token) = page_token.as_deref() {
-                request = request.query(&[("pageToken", token)]);
-            }
-
-            let page: CalendarList = self.core.execute(request).await?.json().await?;
-            Ok((page.items, page.next_page_token))
+                .execute_json(query.apply(self.core.get(self.api_url("users/me/calendarList")?)))
+                .await?;
+            Ok(Page::new(page.items, page.next_page_token))
         })
         .await
     }
@@ -314,32 +308,24 @@ impl CalendarClient {
         calendar_id: &str,
         opts: EventListOptions,
     ) -> Result<Vec<Event>> {
-        let batch_size = opts.max_results.map_or(2500, |m| m.min(2500));
+        let batch_size = opts.max_results.map_or(2500, |value| value.min(2500));
         let time_min = opts.time_min.as_deref();
         let time_max = opts.time_max.as_deref();
         let query = opts.query.as_deref();
 
         paginate(opts.max_results, move |page_token| async move {
-            let mut request = self.core.get(self.events_url(calendar_id)?).query(&[
-                ("singleEvents", "true"),
-                ("maxResults", &batch_size.to_string()),
-            ]);
-
-            if let Some(time_min) = time_min {
-                request = request.query(&[("timeMin", time_min)]);
-            }
-            if let Some(time_max) = time_max {
-                request = request.query(&[("timeMax", time_max)]);
-            }
-            if let Some(query) = query {
-                request = request.query(&[("q", query)]);
-            }
-            if let Some(token) = page_token.as_deref() {
-                request = request.query(&[("pageToken", token)]);
-            }
-
-            let page: Events = self.core.execute(request).await?.json().await?;
-            Ok((page.items, page.next_page_token))
+            let params = QueryParams::new()
+                .add("singleEvents", "true")
+                .add("maxResults", batch_size.to_string())
+                .add_optional("timeMin", time_min)
+                .add_optional("timeMax", time_max)
+                .add_optional("q", query)
+                .add_page_token(page_token.as_deref());
+            let page: Events = self
+                .core
+                .execute_json(params.apply(self.core.get(self.events_url(calendar_id)?)))
+                .await?;
+            Ok(Page::new(page.items, page.next_page_token))
         })
         .await
     }
@@ -405,28 +391,26 @@ impl CalendarClient {
         event_id: &str,
         opts: EventInstancesOptions,
     ) -> Result<Vec<Event>> {
-        let batch_size = opts.max_results.map_or(2500, |m| m.min(2500));
+        let batch_size = opts.max_results.map_or(2500, |value| value.min(2500));
         let time_min = opts.time_min.as_deref();
         let time_max = opts.time_max.as_deref();
 
         paginate(opts.max_results, move |page_token| async move {
-            let mut request = self
+            let params = QueryParams::new()
+                .add("maxResults", batch_size.to_string())
+                .add_optional("timeMin", time_min)
+                .add_optional("timeMax", time_max)
+                .add_page_token(page_token.as_deref());
+            let page: Events = self
                 .core
-                .get(self.event_instances_url(calendar_id, event_id)?)
-                .query(&[("maxResults", &batch_size.to_string())]);
-
-            if let Some(time_min) = time_min {
-                request = request.query(&[("timeMin", time_min)]);
-            }
-            if let Some(time_max) = time_max {
-                request = request.query(&[("timeMax", time_max)]);
-            }
-            if let Some(token) = page_token.as_deref() {
-                request = request.query(&[("pageToken", token)]);
-            }
-
-            let page: Events = self.core.execute(request).await?.json().await?;
-            Ok((page.items, page.next_page_token))
+                .execute_json(
+                    params.apply(
+                        self.core
+                            .get(self.event_instances_url(calendar_id, event_id)?),
+                    ),
+                )
+                .await?;
+            Ok(Page::new(page.items, page.next_page_token))
         })
         .await
     }
@@ -547,16 +531,19 @@ impl CalendarClient {
     }
 
     pub async fn list_settings(&self) -> Result<Settings> {
-        let mut page_token = None;
+        let pages = paginate(None, |page_token| async move {
+            let params = QueryParams::new().add_page_token(page_token.as_deref());
+            let page: Settings = self
+                .core
+                .execute_json(params.apply(self.core.get(self.api_url("users/me/settings")?)))
+                .await?;
+            let next_page_token = page.next_page_token.clone();
+            Ok(Page::new(vec![page], next_page_token))
+        })
+        .await?;
+
         let mut settings = Settings::default();
-
-        loop {
-            let mut request = self.core.get(self.api_url("users/me/settings")?);
-            if let Some(token) = page_token.as_deref() {
-                request = request.query(&[("pageToken", token)]);
-            }
-
-            let page: Settings = self.core.execute(request).await?.json().await?;
+        for page in pages {
             if settings.kind.is_none() {
                 settings.kind = page.kind;
             }
@@ -566,13 +553,7 @@ impl CalendarClient {
             settings.items.extend(page.items);
             settings.extra.extend(page.extra);
             settings.next_sync_token = page.next_sync_token;
-            page_token = page.next_page_token;
-            if page_token.is_none() {
-                break;
-            }
         }
-
-        settings.next_page_token = None;
         Ok(settings)
     }
 
@@ -581,20 +562,17 @@ impl CalendarClient {
     }
 
     pub async fn list_acl(&self, calendar_id: &str, max: Option<usize>) -> Result<Vec<AclRule>> {
-        let batch_size = max.map_or(250, |m| m.min(250));
+        let batch_size = max.map_or(250, |value| value.min(250));
 
         paginate(max, move |page_token| async move {
-            let mut request = self
+            let params = QueryParams::new()
+                .add("maxResults", batch_size.to_string())
+                .add_page_token(page_token.as_deref());
+            let page: AclList = self
                 .core
-                .get(self.acl_url(calendar_id)?)
-                .query(&[("maxResults", &batch_size.to_string())]);
-
-            if let Some(token) = page_token.as_deref() {
-                request = request.query(&[("pageToken", token)]);
-            }
-
-            let page: AclList = self.core.execute(request).await?.json().await?;
-            Ok((page.items, page.next_page_token))
+                .execute_json(params.apply(self.core.get(self.acl_url(calendar_id)?)))
+                .await?;
+            Ok(Page::new(page.items, page.next_page_token))
         })
         .await
     }
@@ -738,31 +716,4 @@ fn generate_channel_id() -> String {
         .unwrap_or_default()
         .as_nanos();
     format!("grr-{}-{timestamp:x}", std::process::id())
-}
-
-async fn paginate<T, F, Fut>(max: Option<usize>, mut fetch: F) -> Result<Vec<T>>
-where
-    F: FnMut(Option<String>) -> Fut,
-    Fut: Future<Output = Result<(Vec<T>, Option<String>)>>,
-{
-    let mut all_items = Vec::new();
-    let mut page_token: Option<String> = None;
-
-    loop {
-        let (items, next_page_token) = fetch(page_token.clone()).await?;
-        all_items.extend(items);
-        if let Some(m) = max
-            && all_items.len() >= m
-        {
-            all_items.truncate(m);
-            break;
-        }
-
-        page_token = next_page_token;
-        if page_token.is_none() {
-            break;
-        }
-    }
-
-    Ok(all_items)
 }

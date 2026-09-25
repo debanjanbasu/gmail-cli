@@ -1,11 +1,11 @@
-﻿//! grr-core — the shared base for every grr service client.
+//! grr-core — the shared base for every grr service client.
 //!
 //! Service-agnostic: OAuth (keyring-backed), zero-config HTTP transport
 //! with HTTP/3 and rate-limit-aware retry, config, and runtime probes.
-//! Service crates (grr-gmail, grr-calendar, ...) build typed clients on
-//! [`HttpCore`].
+//! Service modules (Gmail, Calendar, Drive, People, Chat, Forms) build typed
+//! clients on [`HttpCore`].
 //!
-//! - HTTP/3 with QUIC (via reqwest unstable; optional cargo feature)
+//! - HTTP/3 with QUIC (via reqwest unstable), always compiled
 //! - Auto-tuned transport: zero config, adaptive pooling and backoff
 //! - OS-keyring token storage with file fallback
 //! - Parallel batch operations bounded by API rate limits, not threads
@@ -15,8 +15,6 @@
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
-#![allow(clippy::future_not_send)]
-#![allow(clippy::large_futures)]
 
 pub mod auth;
 pub mod config;
@@ -24,7 +22,10 @@ pub mod config_loader;
 pub mod error;
 pub mod fs_io;
 pub mod http;
+mod pagination;
 pub mod runtime;
+
+pub(crate) use pagination::{Page, paginate};
 
 pub use auth::{AuthConfigBuilder, DeviceAuthChallenge, GoogleAuth, TokenStorage};
 pub use config::{GrrConfig, OAuthConfig};

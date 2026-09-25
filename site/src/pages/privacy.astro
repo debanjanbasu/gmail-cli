@@ -8,17 +8,17 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 >
   <section class="page-hero section">
     <div class="container page-hero-grid">
-      <div>
+      <div class="reveal">
         <span class="eyebrow">privacy</span>
         <h1>Your account stays yours.</h1>
         <p>grr is a local command-line tool. This policy describes what the software does with credentials and requests, and what this static site does not do.</p>
       </div>
-      <div class="page-hero-aside">effective · September 25, 2026</div>
+      <div class="page-hero-aside reveal">effective · September 25, 2026</div>
     </div>
   </section>
 
   <section class="section">
-    <div class="container prose">
+    <div class="container prose reveal">
       <p class="lead">The grr project does not operate a backend, collect telemetry, or build an advertising profile. The CLI runs on your machine and uses your own Google OAuth credentials to call the Google services you choose.</p>
 
       <h2>What the CLI does</h2>
@@ -31,7 +31,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       <p>Anyone with access to your user account or local files may be able to access those credentials. Protect your machine, your config file, and your Google account as you would any other credential.</p>
 
       <h2>This website</h2>
-      <p>This GitHub Pages site is static and has no analytics cookies or tracking scripts. The stats panel is rendered with build-time values. If its optional browser refresh runs, the browser makes direct requests to crates.io and GitHub’s public API; those services receive the ordinary network information required to serve their APIs.</p>
+      <p>This site is static and has no analytics cookies or tracking scripts. The stats panel is rendered with build-time values. If its optional browser refresh runs, the browser makes direct requests to crates.io and GitHub’s public API; those services receive the ordinary network information required to serve their APIs.</p>
       <p>No project data, OAuth token, or CLI command is sent to the grr website or to the project maintainers by the website.</p>
 
       <h2>Sharing and retention</h2>

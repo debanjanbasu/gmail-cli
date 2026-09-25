@@ -18,7 +18,8 @@ const isActive = (href: string) => {
 <header class="site-header">
   <div class="container header-inner">
     <a class="brand" href={base} aria-label="grr home">
-      <img src={`${base}logo-wordmark.svg`} alt="grr — Google Rust Rewrite" width="640" height="256" />
+      <img src={`${base}logo.svg`} alt="" width="256" height="256" />
+      <span class="brand-wordmark">grr</span>
     </a>
     <nav class="primary-nav" aria-label="Primary navigation">
       {links.map((link) => (
@@ -27,7 +28,35 @@ const isActive = (href: string) => {
         </a>
       ))}
     </nav>
-    <a class="header-link" href="https://github.com/debanjanbasu/grr-cli" target="_blank" rel="noreferrer">
+    <button class="theme-toggle" type="button" data-theme-toggle aria-label="Toggle color theme" aria-pressed="false" title="Toggle color theme">
+      <svg class="icon-moon" viewBox="0 0 48 48" width="20" height="20" aria-hidden="true" focusable="false" shape-rendering="crispEdges">
+        <g fill="currentColor">
+          <rect x="24" y="4" width="16" height="4"></rect>
+          <rect x="16" y="8" width="24" height="4"></rect>
+          <rect x="12" y="12" width="20" height="4"></rect>
+          <rect x="12" y="16" width="16" height="4"></rect>
+          <rect x="8" y="20" width="16" height="12"></rect>
+          <rect x="12" y="32" width="16" height="4"></rect>
+          <rect x="12" y="36" width="20" height="4"></rect>
+          <rect x="16" y="40" width="24" height="4"></rect>
+          <rect x="24" y="44" width="16" height="4"></rect>
+        </g>
+      </svg>
+      <svg class="icon-sun" viewBox="0 0 48 48" width="20" height="20" aria-hidden="true" focusable="false" shape-rendering="crispEdges">
+        <g fill="currentColor">
+          <rect x="16" y="16" width="16" height="16"></rect>
+          <rect x="20" y="0" width="8" height="8"></rect>
+          <rect x="20" y="40" width="8" height="8"></rect>
+          <rect x="0" y="20" width="8" height="8"></rect>
+          <rect x="40" y="20" width="8" height="8"></rect>
+          <rect x="36" y="4" width="8" height="8"></rect>
+          <rect x="4" y="4" width="8" height="8"></rect>
+          <rect x="36" y="36" width="8" height="8"></rect>
+          <rect x="4" y="36" width="8" height="8"></rect>
+        </g>
+      </svg>
+    </button>
+    <a class="button button-small button-primary header-github" href="https://github.com/debanjanbasu/grr-cli" target="_blank" rel="noreferrer">
       GitHub <span aria-hidden="true">↗</span>
     </a>
   </div>

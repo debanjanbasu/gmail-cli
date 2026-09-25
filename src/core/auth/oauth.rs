@@ -85,7 +85,7 @@ impl super::GoogleAuth {
             return Err(GrrError::Auth(
                 anyhow::anyhow!(
                     "token endpoint returned {status}: {}",
-                    super::device::error_detail(&token_data)
+                    crate::core::error::json_error_detail(&token_data)
                 )
                 .into(),
             ));

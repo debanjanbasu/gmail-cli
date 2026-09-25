@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-labelledby="title desc">
+  <title id="title">Forms glyph</title>
+  <desc id="desc">A generic pixel form with checkboxes.</desc>
+  <g shape-rendering="crispEdges" fill="none" stroke="#FF8A3D" stroke-width="4">
+    <path d="M16 8h32v48H16z"/><path d="M24 20h16M24 32h16M24 44h10"/><path d="m12 20 4 4 8-8" stroke-width="4"/>
+  </g>
+</svg>

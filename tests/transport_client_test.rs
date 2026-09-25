@@ -26,13 +26,9 @@ async fn base_url_override_builds_without_probing() {
         .await
         .unwrap();
 
-    // HTTP/3 is compile-time (the `http3` feature). In a workspace run the
-    // CLI's feature unification turns it on; assert against the
-    // grr-core-visible state, not this test crate's cfg.
-    // A base_url override skips the probe entirely.
     let info = client.transport_info();
     assert_eq!(info.negotiated_version, "not-probed");
-    assert_eq!(info.http3_requested, grr_cli::core::http::HTTP3_COMPILED);
+    assert!(info.http3_requested);
     assert!(!info.http3_effective);
     assert!(!info.fell_back);
 }

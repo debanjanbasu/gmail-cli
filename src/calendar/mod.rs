@@ -32,8 +32,6 @@
 #![deny(clippy::unwrap_used)]
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
-#![allow(clippy::future_not_send)]
-#![allow(clippy::large_futures)]
 
 pub mod client;
 pub mod models;

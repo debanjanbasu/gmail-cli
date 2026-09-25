@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-labelledby="title desc">
+  <title id="title">Chat glyph</title>
+  <desc id="desc">A generic pixel speech bubble.</desc>
+  <g shape-rendering="crispEdges" fill="none" stroke="#FF8A3D" stroke-width="4">
+    <path d="M8 12h48v32H28L16 52v-8H8z"/><path d="M20 24h24M20 32h16"/>
+  </g>
+</svg>

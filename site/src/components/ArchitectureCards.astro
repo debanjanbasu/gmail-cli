@@ -1,0 +1,32 @@
+---
+interface AssetRef {
+  src: string;
+}
+
+interface ArchitectureCard {
+  title: string;
+  copy: string;
+  glyph: AssetRef;
+}
+
+interface Props {
+  cards: ArchitectureCard[];
+}
+
+const { cards } = Astro.props;
+---
+
+<div class="architecture-grid">
+  {cards.map((card, index) => (
+    <article class="architecture-card reveal">
+      <div class="architecture-card-top">
+        <span class="architecture-index">0{index + 1}</span>
+        <span class="architecture-glyph" aria-hidden="true">
+          <img src={card.glyph.src} alt="" width="48" height="48" loading="lazy" decoding="async" />
+        </span>
+      </div>
+      <h3>{card.title}</h3>
+      <p>{card.copy}</p>
+    </article>
+  ))}
+</div>

@@ -1,8 +1,8 @@
 import { defineConfig } from 'astro/config';
 
 export default defineConfig({
-  site: 'https://debanjanbasu.github.io',
-  base: '/grr-cli',
+  site: 'https://grr-cli.pages.dev',
+  base: '/',
   output: 'static',
   trailingSlash: 'always',
   build: {

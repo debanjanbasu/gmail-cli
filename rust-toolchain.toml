@@ -16,5 +16,3 @@ profile = "minimal"
 [rustfmt]
 config = { tab_spaces = 4, hard_tabs = false, max_width = 100 }
 
-[clippy]
-allow = ["large_futures", "future_not_send"]

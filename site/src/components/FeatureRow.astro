@@ -1,0 +1,58 @@
+---
+import CodeBlock from './CodeBlock.astro';
+
+interface AssetRef {
+  src: string;
+}
+
+interface Service {
+  name: string;
+  eyebrow: string;
+  description: string;
+  subfeatures: string[];
+  command: string;
+  commands: string[];
+  art: AssetRef;
+  glyph: AssetRef;
+  accent: string;
+}
+
+interface Props {
+  service: Service;
+  reverse?: boolean;
+}
+
+const { service, reverse = false } = Astro.props;
+---
+
+<article class:list={['feature-row', { 'feature-row-reverse': reverse }]} style={`--service-accent: ${service.accent}`}>
+  <div class="feature-row-copy reveal">
+    <span class="eyebrow">{service.eyebrow}</span>
+    <h3>{service.name}</h3>
+    <p>{service.description}</p>
+    <ul class="feature-points">
+      {service.subfeatures.map((feature) => <li>{feature}</li>)}
+    </ul>
+  </div>
+  <div class="feature-row-visual reveal">
+    <div class="service-art-card">
+      <div class="art-card-bar">
+        <span>{service.name} workspace</span>
+        <span class="art-card-signal" aria-hidden="true"></span>
+      </div>
+      <div class="art-stage">
+        <img class="service-art" src={service.art.src} alt={`${service.name} illustration`} width="480" height="360" loading="lazy" decoding="async" />
+        <span class="service-glyph" aria-hidden="true">
+          <img src={service.glyph.src} alt="" width="48" height="48" loading="lazy" decoding="async" />
+        </span>
+      </div>
+      <CodeBlock code={service.command} label={`grr ${service.name.toLowerCase()}`} />
+      <details class="service-command-details">
+        <summary>More verified commands</summary>
+        <ul>
+          {service.commands.map((command) => <li><code>{command}</code></li>)}
+        </ul>
+      </details>
+    </div>
+  </div>
+</article>

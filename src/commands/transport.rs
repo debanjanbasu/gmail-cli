@@ -35,7 +35,7 @@ fn format_transport_report(info: &TransportInfo, features: &RuntimeFeatures) -> 
          fell_back: {}\n\
          cpus: {}\n\
          io_uring: {}\n\
-         http3_feature_compiled_in: {}\n\
+         http3_always_compiled: true\n\
          runtime: tokio multi-thread (auto-sized to cores)",
         normalize_version(&info.negotiated_version),
         info.http3_requested,
@@ -43,14 +43,13 @@ fn format_transport_report(info: &TransportInfo, features: &RuntimeFeatures) -> 
         info.fell_back,
         features.num_cpus,
         features.io_uring,
-        features.http3,
     )
 }
 
 pub async fn handle_transport_cmd(client: &GmailClient, _args: TransportArgs) -> Result<()> {
     let report = format_transport_report(
         client.transport_info(),
-        &crate::core::runtime::detect_runtime_features(),
+        &crate::core::runtime::detect_runtime_features().await,
     );
     println!("{report}");
     Ok(())
@@ -63,7 +62,6 @@ mod tests {
     fn features() -> RuntimeFeatures {
         RuntimeFeatures {
             io_uring: false,
-            http3: true,
             num_cpus: 8,
         }
     }
@@ -94,7 +92,7 @@ mod tests {
             "fell_back: false",
             "cpus: 8",
             "io_uring: false",
-            "http3_feature_compiled_in: true",
+            "http3_always_compiled: true",
         ] {
             assert!(report.contains(line), "missing `{line}` in:\n{report}");
         }
@@ -122,6 +120,7 @@ mod tests {
         };
         let report = format_transport_report(&info, &features());
         assert!(report.contains("negotiated_protocol: not-probed"));
-        assert!(report.contains("http3_requested: false"));
+        assert!(report.contains("http3_requested: true"));
+        assert!(report.contains("http3_always_compiled: true"));
     }
 }

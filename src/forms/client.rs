@@ -3,23 +3,14 @@ use url::Url;
 
 use crate::core::auth::{DeviceAuthChallenge, GoogleAuth, TokenStorage};
 use crate::core::error::{GrrError, Result};
-use crate::core::http::{HttpCore, TransportInfo};
+use crate::core::http::{HttpCore, QueryParams, TransportInfo, join_url, parse_url};
 use crate::core::runtime::detect_runtime_features;
+use crate::core::{Page, paginate};
 
 use crate::forms::models::*;
 
 const DEFAULT_BASE_URL: &str = "https://forms.googleapis.com/v1/";
 const PROBE_PATH: &str = "forms";
-
-macro_rules! execute_json {
-    ($client:ident, $($request:tt)*) => {{
-        async {
-            let response = $client.core.execute($($request)*).await?;
-            let value = response.json().await?;
-            Ok::<_, GrrError>(value)
-        }
-    }};
-}
 
 pub struct FormsClientBuilder {
     auth: Option<GoogleAuth>,
@@ -51,16 +42,15 @@ impl FormsClientBuilder {
         let has_base_override = self.base_url.is_some();
         let base_url = match self.base_url {
             Some(url) => url,
-            None => Url::parse(DEFAULT_BASE_URL)
-                .map_err(|e| GrrError::Config(format!("Invalid base URL: {e}")))?,
+            None => parse_url(DEFAULT_BASE_URL, "base")?,
         };
 
         let core = if has_base_override {
-            HttpCore::unprobed(auth, crate::core::http::build_http_client())
+            HttpCore::unprobed(auth, crate::core::http::build_http_client()?)
         } else {
-            HttpCore::connect(auth, &base_url, PROBE_PATH).await
+            HttpCore::connect(auth, &base_url, PROBE_PATH).await?
         };
-        FormsClient::new(core, base_url)
+        FormsClient::new(core, base_url).await
     }
 }
 
@@ -77,11 +67,11 @@ pub struct FormsClient {
 }
 
 impl FormsClient {
-    pub fn new(core: HttpCore, base_url: Url) -> Result<Self> {
-        let features = detect_runtime_features();
+    pub async fn new(core: HttpCore, base_url: Url) -> Result<Self> {
+        let features = detect_runtime_features().await;
         info!(
-            "FormsClient initialized: http3={}, io_uring={}",
-            features.http3, features.io_uring
+            "FormsClient initialized: http3=always, io_uring={}",
+            features.io_uring
         );
         Ok(Self { core, base_url })
     }
@@ -118,9 +108,7 @@ impl FormsClient {
     }
 
     fn api_url(&self, path: &str) -> Result<Url> {
-        self.base_url
-            .join(path)
-            .map_err(|e| GrrError::Config(format!("Invalid API URL: {e}")))
+        join_url(&self.base_url, path, "API")
     }
 
     fn form_url(&self, form_id: &str) -> Result<Url> {
@@ -152,7 +140,9 @@ impl FormsClient {
     }
 
     pub async fn get_form(&self, form_id: &str) -> Result<Form> {
-        execute_json!(self, self.core.get(self.form_url(form_id)?)).await
+        self.core
+            .execute_json(self.core.get(self.form_url(form_id)?))
+            .await
     }
 
     pub async fn list_responses(
@@ -160,38 +150,22 @@ impl FormsClient {
         form_id: &str,
         max: Option<usize>,
     ) -> Result<Vec<FormResponse>> {
-        let mut all_responses = Vec::new();
-        let mut page_token: Option<String> = None;
-        let batch_size = max.map_or(5000, |m| m.min(5000));
+        let batch_size = max.map_or(5000, |value| value.min(5000));
 
-        loop {
-            let mut request = self
+        paginate(max, move |page_token| async move {
+            let params = QueryParams::new()
+                .add("pageSize", batch_size.to_string())
+                .add_page_token(page_token.as_deref());
+            let page: ListFormResponsesResponse = self
                 .core
-                .get(self.responses_url(form_id)?)
-                .query(&[("pageSize", &batch_size.to_string())]);
-
-            if let Some(token) = &page_token {
-                request = request.query(&[("pageToken", token)]);
-            }
-
-            let page: ListFormResponsesResponse = execute_json!(self, request).await?;
-            if let Some(page_responses) = page.responses {
-                all_responses.extend(page_responses);
-            }
-            if let Some(maximum) = max
-                && all_responses.len() >= maximum
-            {
-                all_responses.truncate(maximum);
-                break;
-            }
-
-            page_token = page.next_page_token;
-            if page_token.is_none() {
-                break;
-            }
-        }
-
-        Ok(all_responses)
+                .execute_json(params.apply(self.core.get(self.responses_url(form_id)?)))
+                .await?;
+            Ok(Page::new(
+                page.responses.unwrap_or_default(),
+                page.next_page_token,
+            ))
+        })
+        .await
     }
 
     pub async fn create_form(
@@ -212,14 +186,14 @@ impl FormsClient {
             },
         };
         let unpublished = (!publish).to_string();
-        execute_json!(
-            self,
-            self.core
-                .post(self.api_url("forms")?)
-                .query(&[("unpublished", unpublished.as_str())])
-                .json(&request),
-        )
-        .await
+        self.core
+            .execute_json(
+                self.core
+                    .post(self.api_url("forms")?)
+                    .query(&[("unpublished", unpublished.as_str())])
+                    .json(&request),
+            )
+            .await
     }
 
     pub async fn update_form(
@@ -254,13 +228,14 @@ impl FormsClient {
             }],
         };
 
-        let response: BatchUpdateFormResponse = execute_json!(
-            self,
-            self.core
-                .post(self.batch_update_url(form_id)?)
-                .json(&request),
-        )
-        .await?;
+        let response: BatchUpdateFormResponse = self
+            .core
+            .execute_json(
+                self.core
+                    .post(self.batch_update_url(form_id)?)
+                    .json(&request),
+            )
+            .await?;
         Ok(response.form.unwrap_or_default())
     }
 
@@ -282,16 +257,16 @@ impl FormsClient {
             },
             watch_id: None,
         };
-        execute_json!(
-            self,
-            self.core.post(self.watches_url(form_id)?).json(&request),
-        )
-        .await
+        self.core
+            .execute_json(self.core.post(self.watches_url(form_id)?).json(&request))
+            .await
     }
 
     pub async fn list_watches(&self, form_id: &str) -> Result<Vec<Watch>> {
-        let response: ListWatchesResponse =
-            execute_json!(self, self.core.get(self.watches_url(form_id)?)).await?;
+        let response: ListWatchesResponse = self
+            .core
+            .execute_json(self.core.get(self.watches_url(form_id)?))
+            .await?;
         Ok(response.watches.unwrap_or_default())
     }
 
@@ -303,13 +278,13 @@ impl FormsClient {
     }
 
     pub async fn renew_watch(&self, form_id: &str, watch_id: &str) -> Result<Watch> {
-        execute_json!(
-            self,
-            self.core
-                .post(self.renew_watch_url(form_id, watch_id)?)
-                .json(&RenewWatchRequest {}),
-        )
-        .await
+        self.core
+            .execute_json(
+                self.core
+                    .post(self.renew_watch_url(form_id, watch_id)?)
+                    .json(&RenewWatchRequest {}),
+            )
+            .await
     }
 }
 

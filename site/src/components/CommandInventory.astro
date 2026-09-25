@@ -1,0 +1,34 @@
+---
+interface Surface {
+  name: string;
+  commands: string;
+}
+
+interface Props {
+  surfaces: Surface[];
+}
+
+const { surfaces } = Astro.props;
+---
+
+<div class="inventory-panel">
+  <div class="inventory-heading">
+    <div>
+      <span class="eyebrow">complete 0.4 command surface</span>
+      <h3>Every branch, still namespaced.</h3>
+    </div>
+    <span class="inventory-count">06 services</span>
+  </div>
+  <div class="inventory-list">
+    {surfaces.map((surface) => (
+      <details class="inventory-item">
+        <summary>
+          <span>{surface.name}</span>
+          <span class="inventory-summary-mark" aria-hidden="true">+</span>
+        </summary>
+        <div class="inventory-commands"><code>{surface.commands}</code></div>
+      </details>
+    ))}
+  </div>
+  <p>Run <code>grr &lt;service&gt; --help</code> and <code>grr schema</code> for the exact flags. Gmail filters, forwarding, auto-forwarding, POP, and IMAP are under <code>grr gmail msg</code>; <code>thread list</code>, <code>send-as verify</code>, and paginated history are also available.</p>
+</div>

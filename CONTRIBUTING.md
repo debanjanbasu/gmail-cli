@@ -4,7 +4,7 @@ Thank you for wanting to contribute! Please read through the following guideline
 
 ### Development Setup
 
-1. **Install Rust**: the default CLI build requires nightly. [`rust-toolchain.toml`](./rust-toolchain.toml) pins it and supplies the components the build needs. The default `http3` feature needs the `--cfg reqwest_unstable` flag, which [`.cargo/config.toml`](./.cargo/config.toml) sets for in-repo builds. The library can build on stable Rust with `default-features = false` (HTTP/2); the CLI enables HTTP/3, so it needs nightly.
+1. **Install Rust**: grr requires **nightly** — there is no stable path, and the build script fails with a clear message on other toolchains. [`rust-toolchain.toml`](./rust-toolchain.toml) pins it and supplies the components the build needs, while [`.cargo/config.toml`](./.cargo/config.toml) sets the `--cfg reqwest_unstable` flag that HTTP/3 (always compiled in) requires.
 2. **Clone the repo**: `git clone https://github.com/debanjanbasu/grr-cli.git`
 3. **Config**: create `~/.grr/config.toml` with your OAuth client ID (see [`config.toml.example`](./config.toml.example); full Google Cloud walkthrough in [`docs/gcp-setup.md`](./docs/gcp-setup.md))
 4. **Auth**: run `cargo run -- auth login` to complete Google consent

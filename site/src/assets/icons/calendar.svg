@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-labelledby="title desc">
+  <title id="title">Calendar glyph</title>
+  <desc id="desc">A generic pixel calendar.</desc>
+  <g shape-rendering="crispEdges" fill="none" stroke="#FF8A3D" stroke-width="4">
+    <path d="M12 16h40v36H12z"/><path d="M12 28h40M24 8v16M40 8v16"/><path d="M20 36h8M36 36h8M20 44h8" stroke-width="8"/>
+  </g>
+</svg>

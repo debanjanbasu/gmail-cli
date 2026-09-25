@@ -1,0 +1,16 @@
+Fonts shipped with the grr site
+
+Departure Mono
+Copyright (c) 2024 Helena Zhang and Tobias Fried
+License: SIL Open Font License 1.1
+Source: https://github.com/rektdeckard/departure-mono
+
+Silkscreen
+License: SIL Open Font License 1.1
+Source: https://fonts.google.com/specimen/Silkscreen
+
+VT323
+License: SIL Open Font License 1.1
+Source: https://fonts.google.com/specimen/VT323
+
+The WOFF2 files in this directory are the Latin subsets used by the site.

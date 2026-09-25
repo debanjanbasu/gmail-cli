@@ -9,7 +9,7 @@
 
 **Google tools from the terminal, at maximum performance.** `grr-cli` is one published Rust package with the `grr` command-line binary and the `grr_cli` library behind it. Gmail, Calendar, Drive, Contacts, Chat, and Forms share one OAuth login, while stdout stays clean and machine-readable.
 
-Project site: [debanjanbasu.github.io/grr-cli](https://debanjanbasu.github.io/grr-cli/) · [Privacy](https://debanjanbasu.github.io/grr-cli/privacy/)
+Project site: [grr-cli.pages.dev](https://grr-cli.pages.dev/) · [Privacy](https://grr-cli.pages.dev/privacy/)
 
 grr is an independent project and is not affiliated with or endorsed by Google.
 
@@ -47,7 +47,7 @@ brew install debanjanbasu/tap/grr     # macOS + Linux (tap: debanjanbasu/homebre
 cargo install grr-cli                 # crates.io (0.3.0 live; 0.4.0 in preparation)
 ```
 
-The crates.io CLI build needs nightly Rust and `RUSTFLAGS="--cfg reqwest_unstable"` for HTTP/3; the prebuilt releases avoid that source-build step. Library consumers can disable the default features and use stable Rust (see [Library use](#library-use)).
+The crates.io CLI build needs nightly Rust and `RUSTFLAGS="--cfg reqwest_unstable"` for HTTP/3; the prebuilt releases avoid that source-build step. Library consumers pick services with cargo features; every build, library or CLI, requires Rust nightly (see [Library use](#library-use)).
 
 ## 60-second quickstart
 
@@ -179,7 +179,7 @@ The service modules sit behind one shared core rather than separate published cr
 The package exposes the same clients through the `grr_cli` library. The `cli` feature enables all six service features and is required by the `grr` binary; individual services can be selected independently with `gmail`, `calendar`, `drive`, `people`, `chat`, and `forms`. The Cargo feature declarations are:
 
 ```toml
-default = ["cli", "http3"]
+default = ["cli"]
 cli = ["gmail", "calendar", "drive", "people", "chat", "forms"]
 gmail = []
 calendar = []
@@ -187,21 +187,20 @@ drive = []
 people = []
 chat = []
 forms = []
-http3 = ["reqwest/http3"]
 ```
 
-`http3` enables `reqwest/http3`. A library dependency can select only the services it needs:
+There is no `http3` feature: HTTP/3 (rustls + quinn, via reqwest's unstable http3 support) is **always compiled in**, and HTTP/2 exists only as a runtime fallback. A library dependency can select only the services it needs:
 
 ```toml
 [dependencies]
 grr-cli = { version = "0.4.0", default-features = false, features = ["gmail"] }
 ```
 
-With `default-features = false`, the library builds on stable Rust and uses HTTP/2. HTTP/3 requires nightly Rust and the `reqwest_unstable` cfg; the repository's [.cargo/config.toml](.cargo/config.toml) supplies that cfg for in-repo builds. The old per-crate `io_uring` feature is gone: io_uring is a Linux-only target-specific dependency that is detected at runtime.
+Every build — CLI or library, any feature subset — requires Rust **nightly** and the `reqwest_unstable` cfg (`.cargo/config.toml` supplies it for in-repo builds; downstream users need `RUSTFLAGS="--cfg reqwest_unstable"`). There is deliberately no stable-Rust path. The old per-crate `io_uring` feature is gone: io_uring is a Linux-only target-specific dependency that is detected at runtime.
 
 ## Development
 
-The default CLI build requires Rust **nightly**: [rust-toolchain.toml](rust-toolchain.toml) pins it and supplies the components needed by the build, while [.cargo/config.toml](.cargo/config.toml) sets the `reqwest_unstable` cfg for in-repo HTTP/3 builds. The library can be built on stable Rust with `default-features = false` (HTTP/2).
+grr requires Rust **nightly** — the build script fails with a clear message on any other toolchain. [rust-toolchain.toml](rust-toolchain.toml) pins it and supplies the components needed by the build, while [.cargo/config.toml](.cargo/config.toml) sets the `reqwest_unstable` cfg for HTTP/3.
 
 ```sh
 cargo build

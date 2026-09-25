@@ -16,7 +16,8 @@ use reqwest::header::{CONTENT_TYPE, HeaderValue};
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
 
-use crate::core::error::{GrrError, Result};
+use crate::core::error::Result;
+use crate::core::http::join_url;
 use crate::gmail::models::*;
 
 const CHUNK: usize = 192 * 1024; // multiple of 3 for clean base64 framing
@@ -184,9 +185,7 @@ pub fn mime_message_stream(
 impl super::GmailClient {
     /// Build a media-upload endpoint URL from the upload base.
     fn upload_url(&self, path: &str) -> Result<url::Url> {
-        self.upload_base_url
-            .join(path)
-            .map_err(|e| GrrError::Config(format!("Invalid upload URL: {}", e)))
+        join_url(&self.upload_base_url, path, "upload")
     }
 
     /// Send a fully-assembled RFC822 byte stream via the media-upload endpoint.

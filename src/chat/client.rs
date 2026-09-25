@@ -1,35 +1,16 @@
-use std::future::Future;
-
 use tracing::info;
 use url::Url;
 
 use crate::core::auth::{DeviceAuthChallenge, GoogleAuth, TokenStorage};
 use crate::core::error::{GrrError, Result};
-use crate::core::http::{HttpCore, TransportInfo};
+use crate::core::http::{HttpCore, QueryParams, TransportInfo, join_url, parse_url};
 use crate::core::runtime::detect_runtime_features;
+use crate::core::{Page, paginate};
 
 use crate::chat::models::*;
 
 const DEFAULT_BASE_URL: &str = "https://chat.googleapis.com/v1/";
 const PROBE_PATH: &str = "spaces";
-
-macro_rules! execute_json {
-    ($client:ident, $($request:tt)*) => {{
-        async {
-            let response = $client.core.execute($($request)*).await?;
-            let value = response.json().await?;
-            Ok::<_, GrrError>(value)
-        }
-    }};
-}
-
-macro_rules! execute_delete {
-    ($client:ident, $($request:tt)*) => {{
-        async {
-            $client.core.execute($($request)*).await.map(|_| ())
-        }
-    }};
-}
 
 pub struct ChatClientBuilder {
     auth: Option<GoogleAuth>,
@@ -61,16 +42,15 @@ impl ChatClientBuilder {
         let has_base_override = self.base_url.is_some();
         let base_url = match self.base_url {
             Some(url) => url,
-            None => Url::parse(DEFAULT_BASE_URL)
-                .map_err(|e| GrrError::Config(format!("Invalid base URL: {e}")))?,
+            None => parse_url(DEFAULT_BASE_URL, "base")?,
         };
 
         let core = if has_base_override {
-            HttpCore::unprobed(auth, crate::core::http::build_http_client())
+            HttpCore::unprobed(auth, crate::core::http::build_http_client()?)
         } else {
-            HttpCore::connect(auth, &base_url, PROBE_PATH).await
+            HttpCore::connect(auth, &base_url, PROBE_PATH).await?
         };
-        ChatClient::new(core, base_url)
+        ChatClient::new(core, base_url).await
     }
 }
 
@@ -87,11 +67,11 @@ pub struct ChatClient {
 }
 
 impl ChatClient {
-    pub fn new(core: HttpCore, base_url: Url) -> Result<Self> {
-        let features = detect_runtime_features();
+    pub async fn new(core: HttpCore, base_url: Url) -> Result<Self> {
+        let features = detect_runtime_features().await;
         info!(
-            "ChatClient initialized: http3={}, io_uring={}",
-            features.http3, features.io_uring
+            "ChatClient initialized: http3=always, io_uring={}",
+            features.io_uring
         );
         Ok(Self { core, base_url })
     }
@@ -128,9 +108,7 @@ impl ChatClient {
     }
 
     fn api_url(&self, path: &str) -> Result<Url> {
-        self.base_url
-            .join(path)
-            .map_err(|e| GrrError::Config(format!("Invalid API URL: {e}")))
+        join_url(&self.base_url, path, "API")
     }
 
     fn space_path(&self, space_id: &str) -> String {
@@ -217,43 +195,45 @@ impl ChatClient {
     }
 
     pub async fn list_spaces(&self, max: Option<usize>) -> Result<Vec<Space>> {
-        let batch_size = max.map_or(1000, |m| m.min(1000));
+        let batch_size = max.map_or(1000, |value| value.min(1000));
 
         paginate(max, move |page_token| async move {
-            let mut request = self
+            let params = QueryParams::new()
+                .add("pageSize", batch_size.to_string())
+                .add_page_token(page_token.as_deref());
+            let page: ListSpacesResponse = self
                 .core
-                .get(self.api_url("spaces")?)
-                .query(&[("pageSize", &batch_size.to_string())]);
-
-            if let Some(token) = page_token.as_deref() {
-                request = request.query(&[("pageToken", token)]);
-            }
-
-            let page: ListSpacesResponse = execute_json!(self, request).await?;
-            Ok((page.spaces.unwrap_or_default(), page.next_page_token))
+                .execute_json(params.apply(self.core.get(self.api_url("spaces")?)))
+                .await?;
+            Ok(Page::new(
+                page.spaces.unwrap_or_default(),
+                page.next_page_token,
+            ))
         })
         .await
     }
 
     pub async fn get_space(&self, space_id: &str) -> Result<Space> {
-        execute_json!(self, self.core.get(self.space_url(space_id)?)).await
+        self.core
+            .execute_json(self.core.get(self.space_url(space_id)?))
+            .await
     }
 
     pub async fn list_messages(&self, space_id: &str, max: Option<usize>) -> Result<Vec<Message>> {
-        let batch_size = max.map_or(1000, |m| m.min(1000));
+        let batch_size = max.map_or(1000, |value| value.min(1000));
 
         paginate(max, move |page_token| async move {
-            let mut request = self
+            let params = QueryParams::new()
+                .add("pageSize", batch_size.to_string())
+                .add_page_token(page_token.as_deref());
+            let page: ListMessagesResponse = self
                 .core
-                .get(self.messages_url(space_id)?)
-                .query(&[("pageSize", &batch_size.to_string())]);
-
-            if let Some(token) = page_token.as_deref() {
-                request = request.query(&[("pageToken", token)]);
-            }
-
-            let page: ListMessagesResponse = execute_json!(self, request).await?;
-            Ok((page.messages.unwrap_or_default(), page.next_page_token))
+                .execute_json(params.apply(self.core.get(self.messages_url(space_id)?)))
+                .await?;
+            Ok(Page::new(
+                page.messages.unwrap_or_default(),
+                page.next_page_token,
+            ))
         })
         .await
     }
@@ -262,11 +242,9 @@ impl ChatClient {
         let request = CreateMessageRequest {
             text: text.to_string(),
         };
-        execute_json!(
-            self,
-            self.core.post(self.messages_url(space_id)?).json(&request)
-        )
-        .await
+        self.core
+            .execute_json(self.core.post(self.messages_url(space_id)?).json(&request))
+            .await
     }
 
     pub async fn setup_space<M>(
@@ -326,7 +304,7 @@ impl ChatClient {
         if let Some(mask) = read_mask {
             builder = builder.query(&[("readMask", mask)]);
         }
-        execute_json!(self, builder).await
+        self.core.execute_json(builder).await
     }
 
     pub async fn patch_space(
@@ -353,14 +331,15 @@ impl ChatClient {
             description: description.map(str::to_string),
         };
         let url = self.space_url(space_id)?;
-        match execute_json!(
-            self,
-            self.core
-                .patch(url.clone())
-                .query(&[("updateMask", &mask.join(","))])
-                .json(&request),
-        )
-        .await
+        match self
+            .core
+            .execute_json(
+                self.core
+                    .patch(url.clone())
+                    .query(&[("updateMask", &mask.join(","))])
+                    .json(&request),
+            )
+            .await
         {
             Ok(space) => Ok(space),
             Err(GrrError::NotFound(_)) => {
@@ -380,14 +359,14 @@ impl ChatClient {
                     official_mask.push("spaceDetails");
                 }
                 let official_mask = official_mask.join(",");
-                execute_json!(
-                    self,
-                    self.core
-                        .patch(self.space_url(space_id)?)
-                        .query(&[("updateMask", official_mask.as_str())])
-                        .json(&official_request),
-                )
-                .await
+                self.core
+                    .execute_json(
+                        self.core
+                            .patch(self.space_url(space_id)?)
+                            .query(&[("updateMask", official_mask.as_str())])
+                            .json(&official_request),
+                    )
+                    .await
             }
             Err(error) => Err(error),
         }
@@ -403,7 +382,10 @@ impl ChatClient {
     }
 
     pub async fn delete_space(&self, space_id: &str) -> Result<()> {
-        execute_delete!(self, self.core.delete(self.space_url(space_id)?)).await
+        self.core
+            .execute(self.core.delete(self.space_url(space_id)?))
+            .await
+            .map(|_| ())
     }
 
     pub async fn list_memberships(
@@ -417,28 +399,26 @@ impl ChatClient {
         paginate(max, move |page_token| {
             let url = url.clone();
             async move {
-                let mut request = self
+                let params = QueryParams::new()
+                    .add("pageSize", batch_size.to_string())
+                    .add_page_token(page_token.as_deref());
+                let page: ListMembershipsResponse = self
                     .core
-                    .get(url)
-                    .query(&[("pageSize", &batch_size.to_string())]);
-
-                if let Some(token) = page_token.as_deref() {
-                    request = request.query(&[("pageToken", token)]);
-                }
-
-                let page: ListMembershipsResponse = execute_json!(self, request).await?;
-                Ok((page.memberships.unwrap_or_default(), page.next_page_token))
+                    .execute_json(params.apply(self.core.get(url)))
+                    .await?;
+                Ok(Page::new(
+                    page.memberships.unwrap_or_default(),
+                    page.next_page_token,
+                ))
             }
         })
         .await
     }
 
     pub async fn get_membership(&self, space_id: &str, membership_id: &str) -> Result<Membership> {
-        execute_json!(
-            self,
-            self.core.get(self.membership_url(space_id, membership_id)?)
-        )
-        .await
+        self.core
+            .execute_json(self.core.get(self.membership_url(space_id, membership_id)?))
+            .await
     }
 
     pub async fn create_membership(&self, space_id: &str, member_name: &str) -> Result<Membership> {
@@ -453,22 +433,23 @@ impl ChatClient {
                 ..MembershipMember::default()
             },
         };
-        execute_json!(
-            self,
-            self.core
-                .post(self.memberships_url(space_id)?)
-                .json(&request),
-        )
-        .await
+        self.core
+            .execute_json(
+                self.core
+                    .post(self.memberships_url(space_id)?)
+                    .json(&request),
+            )
+            .await
     }
 
     pub async fn delete_membership(&self, space_id: &str, membership_id: &str) -> Result<()> {
-        execute_delete!(
-            self,
-            self.core
-                .delete(self.membership_url(space_id, membership_id)?),
-        )
-        .await
+        self.core
+            .execute(
+                self.core
+                    .delete(self.membership_url(space_id, membership_id)?),
+            )
+            .await
+            .map(|_| ())
     }
 
     pub async fn list_reactions(
@@ -477,23 +458,23 @@ impl ChatClient {
         message_id: &str,
         max: Option<usize>,
     ) -> Result<Vec<Reaction>> {
-        let batch_size = max.map_or(200, |m| m.min(200));
+        let batch_size = max.map_or(200, |value| value.min(200));
         let url = self.messages_reactions_url(space_id, message_id)?;
 
         paginate(max, move |page_token| {
             let url = url.clone();
             async move {
-                let mut request = self
+                let params = QueryParams::new()
+                    .add("pageSize", batch_size.to_string())
+                    .add_page_token(page_token.as_deref());
+                let page: ListReactionsResponse = self
                     .core
-                    .get(url.clone())
-                    .query(&[("pageSize", &batch_size.to_string())]);
-
-                if let Some(token) = page_token.as_deref() {
-                    request = request.query(&[("pageToken", token)]);
-                }
-
-                let page: ListReactionsResponse = execute_json!(self, request).await?;
-                Ok((page.reactions.unwrap_or_default(), page.next_page_token))
+                    .execute_json(params.apply(self.core.get(url)))
+                    .await?;
+                Ok(Page::new(
+                    page.reactions.unwrap_or_default(),
+                    page.next_page_token,
+                ))
             }
         })
         .await
@@ -515,13 +496,13 @@ impl ChatClient {
                 custom_emoji: None,
             },
         };
-        execute_json!(
-            self,
-            self.core
-                .post(self.messages_reactions_url(space_id, message_id)?)
-                .json(&request),
-        )
-        .await
+        self.core
+            .execute_json(
+                self.core
+                    .post(self.messages_reactions_url(space_id, message_id)?)
+                    .json(&request),
+            )
+            .await
     }
 
     pub async fn create_reaction_with_emoji(
@@ -531,22 +512,23 @@ impl ChatClient {
         emoji: Emoji,
     ) -> Result<Reaction> {
         let request = CreateReactionRequest { emoji };
-        execute_json!(
-            self,
-            self.core
-                .post(self.messages_reactions_url(space_id, message_id)?)
-                .json(&request),
-        )
-        .await
+        self.core
+            .execute_json(
+                self.core
+                    .post(self.messages_reactions_url(space_id, message_id)?)
+                    .json(&request),
+            )
+            .await
     }
 
     pub async fn delete_reaction(&self, space_id: &str, reaction_name: &str) -> Result<()> {
-        execute_delete!(
-            self,
-            self.core
-                .delete(self.reaction_url(space_id, reaction_name)?),
-        )
-        .await
+        self.core
+            .execute(
+                self.core
+                    .delete(self.reaction_url(space_id, reaction_name)?),
+            )
+            .await
+            .map(|_| ())
     }
 }
 
@@ -586,31 +568,4 @@ fn emoji_unicode(value: &str) -> String {
         .map(|character| format!("{:X}", character as u32))
         .collect::<Vec<_>>()
         .join("-")
-}
-
-async fn paginate<T, F, Fut>(max: Option<usize>, mut fetch: F) -> Result<Vec<T>>
-where
-    F: FnMut(Option<String>) -> Fut,
-    Fut: Future<Output = Result<(Vec<T>, Option<String>)>>,
-{
-    let mut all_items = Vec::new();
-    let mut page_token: Option<String> = None;
-
-    loop {
-        let (items, next_page_token) = fetch(page_token.clone()).await?;
-        all_items.extend(items);
-        if let Some(maximum) = max
-            && all_items.len() >= maximum
-        {
-            all_items.truncate(maximum);
-            break;
-        }
-
-        page_token = next_page_token;
-        if page_token.is_none() {
-            break;
-        }
-    }
-
-    Ok(all_items)
 }
