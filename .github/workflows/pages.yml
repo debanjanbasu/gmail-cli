@@ -20,8 +20,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
-        with:
-          path: site
 
       - name: Setup Node
         uses: actions/setup-node@v5
@@ -35,7 +33,8 @@ jobs:
         run: npm ci
 
       - name: Refresh build stats
-        run: node site/scripts/update-stats.mjs
+        working-directory: site
+        run: node scripts/update-stats.mjs
         continue-on-error: true
 
       - name: Build
