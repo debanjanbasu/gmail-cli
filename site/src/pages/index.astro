@@ -1,4 +1,4 @@
----
+﻿---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import ArchitectureCards from '../components/ArchitectureCards.astro';
 import CodeBlock from '../components/CodeBlock.astro';
@@ -7,7 +7,7 @@ import FeatureRow from '../components/FeatureRow.astro';
 import Mascot from '../components/Mascot.astro';
 import SectionIntro from '../components/SectionIntro.astro';
 import Stats from '../components/Stats.astro';
-import heroTerminal from '../assets/hero-terminal.svg';
+import heroTerminal from '../assets/hero-terminal.svg?raw';
 import artMail from '../assets/art-mail.svg';
 import artCalendar from '../assets/art-calendar.svg';
 import artDrive from '../assets/art-drive.svg';
@@ -16,10 +16,8 @@ import artChat from '../assets/art-chat.svg';
 import artForms from '../assets/art-forms.svg';
 import glyphMail from '../assets/glyph-mail.svg';
 import glyphCalendar from '../assets/glyph-calendar.svg';
-import glyphDrive from '../assets/glyph-drive.svg';
 import glyphContacts from '../assets/glyph-contacts.svg';
 import glyphChat from '../assets/glyph-chat.svg';
-import glyphForms from '../assets/glyph-forms.svg';
 
 const base = import.meta.env.BASE_URL;
 const releaseUrl = 'https://github.com/debanjanbasu/grr-cli/releases';
@@ -28,7 +26,6 @@ const services = [
     name: 'Gmail',
     eyebrow: '01 / inbox',
     art: artMail,
-    glyph: glyphMail,
     accent: '#f97316',
     description: 'Search, read, compose, label, filter, route mail, and batch without leaving your shell.',
     subfeatures: ['Search and read messages', 'Compose, label, and route mail', 'Batch and filter messages', 'Manage threads, history, and send-as'],
@@ -44,7 +41,6 @@ const services = [
     name: 'Calendar',
     eyebrow: '02 / time',
     art: artCalendar,
-    glyph: glyphCalendar,
     accent: '#fb923c',
     description: 'List calendars, manage events, watch changes, and check free-busy windows in one pass.',
     subfeatures: ['List calendars and events', 'Create, update, move, and delete', 'Watch changes and free-busy', 'Manage sharing, settings, and colors'],
@@ -59,7 +55,6 @@ const services = [
     name: 'Drive',
     eyebrow: '03 / files',
     art: artDrive,
-    glyph: glyphDrive,
     accent: '#ea580c',
     description: 'Find files, inspect metadata, manage sharing and comments, and control storage.',
     subfeatures: ['Find files and inspect metadata', 'Upload, download, and export', 'Manage sharing and comments', 'Restore, rename, and control storage'],
@@ -74,7 +69,6 @@ const services = [
     name: 'Contacts',
     eyebrow: '04 / people',
     art: artContacts,
-    glyph: glyphContacts,
     accent: '#c2410c',
     description: 'Query people, organize groups, batch-read profiles, and keep photos close to your workflows.',
     subfeatures: ['Search and organize people', 'Create, update, and manage groups', 'Batch-read profiles and photos', 'Adopt contacts and keep photos close'],
@@ -89,7 +83,6 @@ const services = [
     name: 'Chat',
     eyebrow: '05 / rooms',
     art: artChat,
-    glyph: glyphChat,
     accent: '#fdba74',
     description: 'Browse spaces, manage members, read messages, and react without context switching.',
     subfeatures: ['Browse spaces and members', 'Add and remove members', 'Read and send messages', 'React and unreact to messages'],
@@ -104,7 +97,6 @@ const services = [
     name: 'Forms',
     eyebrow: '06 / signals',
     art: artForms,
-    glyph: glyphForms,
     accent: '#c2410c',
     description: 'Read and update forms, pull responses, and manage watch channels for lightweight automation.',
     subfeatures: ['Read and update forms', 'Pull response data', 'Create and manage watch channels', 'Renew and delete watches'],
@@ -205,6 +197,28 @@ const faqs = [
     answer: 'The CLI enables HTTP/3 through reqwest and QUIC support, which is gated behind Rust nightly and the reqwest_unstable cfg. The repo pins the required toolchain and sets the cfg for in-repo builds; the CLI falls back to HTTP/2 at runtime if QUIC is unavailable.',
   },
 ];
+const storySteps = [
+  {
+    index: '01',
+    title: 'Waves when you arrive.',
+    copy: 'One OAuth login unlocks six services in a single namespaced binary.',
+  },
+  {
+    index: '02',
+    title: 'Sits with you while you work.',
+    copy: 'Commands stay close to the work they support, and the output stays parseable.',
+  },
+  {
+    index: '03',
+    title: 'Sleeps while your scripts run.',
+    copy: 'No analytics SDK, no telemetry. Tokens rest in the operating system keyring.',
+  },
+  {
+    index: '04',
+    title: 'Celebrates when you ship.',
+    copy: 'Output that plays nicely with jq, by default.',
+  },
+];
 ---
 
 <BaseLayout
@@ -213,30 +227,48 @@ const faqs = [
 >
   <section class="hero section" aria-labelledby="hero-title">
     <div class="container hero-grid">
-      <div class="hero-copy reveal">
-        <span class="eyebrow"><span class="status-dot" aria-hidden="true"></span> Six services · one login</span>
-        <h1 id="hero-title">Google tools,<br /><span>at terminal speed.</span></h1>
-        <p class="hero-lede">Zero-config, maximum-performance Google tools from the terminal. One binary, six services, and output that plays nicely with jq.</p>
-        <div class="hero-actions">
+      <div class="hero-copy">
+        <span class="eyebrow hero-fade">Rust Rewrite · six services · one login</span>
+        <h1 id="hero-title">
+          <span class="hero-line"><span class="hero-line-inner">Google tools,</span></span>
+          <span class="hero-line"><span class="hero-line-inner hero-line-accent">at terminal speed.</span></span>
+        </h1>
+        <p class="hero-lede hero-fade">Zero-config, maximum-performance Google tools from the terminal. One binary, six services, and output that plays nicely with jq.</p>
+        <div class="hero-actions hero-fade">
           <a class="button button-primary" href={releaseUrl} target="_blank" rel="noreferrer">GitHub releases <span aria-hidden="true">↗</span></a>
           <a class="button button-secondary" href={`${base}install/`}>Install grr <span aria-hidden="true">→</span></a>
         </div>
-        <p class="hero-note">Configure one OAuth client ID. The CLI handles the rest.</p>
+        <p class="hero-note hero-fade">Configure one OAuth client ID. The CLI handles the rest.</p>
       </div>
-      <div class="hero-visual reveal">
+      <div class="hero-visual">
         <div class="hero-stage">
-          <div class="hero-stage-sheen" aria-hidden="true"></div>
-          <span class="scene-label">grr // online</span>
-          <img class="hero-terminal-art" src={heroTerminal.src} alt="A dimensional grr terminal workspace" width="960" height="640" fetchpriority="high" decoding="async" />
+          <div class="hero-terminal-art" set:html={heroTerminal} />
           <div class="hero-contact-shadow" aria-hidden="true"></div>
+          <span class="hero-spark hero-spark-a" aria-hidden="true"></span>
+          <span class="hero-spark hero-spark-b" aria-hidden="true"></span>
+          <span class="hero-spark hero-spark-c" aria-hidden="true"></span>
           <div class="hero-mascot">
-            <Mascot label="Pixel-art orange crab mascot perched on the grr terminal" />
+            <Mascot label="Pixel-art orange crab mascot waving from the grr terminal" pose="wave" uid="hero" />
           </div>
-          <span class="hero-stage-caption">one login · six services</span>
         </div>
       </div>
     </div>
   </section>
+
+  <div class="command-marquee" aria-label="Install commands">
+    <div class="command-marquee-track">
+      <div class="command-marquee-group">
+        <span>brew install debanjanbasu/tap/grr</span>
+        <span>winget install debanjanbasu.grr</span>
+        <span>cargo install grr-cli --locked</span>
+      </div>
+      <div class="command-marquee-group" aria-hidden="true">
+        <span>brew install debanjanbasu/tap/grr</span>
+        <span>winget install debanjanbasu.grr</span>
+        <span>cargo install grr-cli --locked</span>
+      </div>
+    </div>
+  </div>
 
   <Stats />
 
@@ -252,6 +284,41 @@ const faqs = [
         {services.map((service, index) => <FeatureRow service={service} reverse={index % 2 === 1} />)}
       </div>
       <CommandInventory surfaces={commandSurfaces} />
+    </div>
+  </section>
+
+  <section class="story-section section" aria-labelledby="story-title">
+    <div class="container">
+      <div class="section-heading story-heading">
+        <span class="eyebrow">scrollytelling</span>
+        <h2 id="story-title">One crab, four moods.</h2>
+      </div>
+      <div class="story-grid">
+        <div class="story-steps">
+          {storySteps.map((step) => (
+            <div class="story-step">
+              <span class="story-step-index" aria-hidden="true">// {step.index}</span>
+              <h3>{step.title}</h3>
+              <p>{step.copy}</p>
+            </div>
+          ))}
+        </div>
+        <div class="story-stage">
+          <Mascot variant="story" label="The grr crab mascot waves, waits, sleeps, and celebrates as you scroll" uid="story" />
+          <div class="story-meter" aria-hidden="true">
+            <span class="story-tick story-tick-wave"></span>
+            <span class="story-tick story-tick-idle"></span>
+            <span class="story-tick story-tick-sleep"></span>
+            <span class="story-tick story-tick-celebrate"></span>
+          </div>
+          <p class="story-captions" aria-hidden="true">
+            <span class="story-cap story-cap-wave">hi</span>
+            <span class="story-cap story-cap-idle">your terminal, your data</span>
+            <span class="story-cap story-cap-sleep">zero config, zero noise</span>
+            <span class="story-cap story-cap-celebrate">ship it</span>
+          </p>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -345,13 +412,25 @@ const faqs = [
   </section>
 
   <section class="cta-section section" aria-labelledby="cta-title">
-    <div class="container">
-      <div class="cta-panel reveal">
-        <div class="cta-sheen" aria-hidden="true"></div>
+    <div class="container cta-grid">
+      <div class="cta-copy reveal">
         <h2 id="cta-title">Your Google workflows deserve a better terminal.</h2>
         <p>Grab a binary, point it at your own OAuth client, and let grr get out of the way.</p>
-        <a class="button button-dark" href={`${base}install/`}>Choose your install path <span aria-hidden="true">→</span></a>
+        <div class="hero-actions">
+          <a class="button button-primary" href={`${base}install/`}>Choose your install path <span aria-hidden="true">→</span></a>
+          <a class="button button-secondary" href={releaseUrl} target="_blank" rel="noreferrer">GitHub releases <span aria-hidden="true">↗</span></a>
+        </div>
         <p class="legal-note">grr is an independent project and is not affiliated with, sponsored by, or endorsed by Google LLC.</p>
+      </div>
+      <div class="cta-visual reveal">
+        <div class="install-slab" role="img" aria-label="A floating card showing the cargo install command for grr">
+          <div class="slab-base" aria-hidden="true"></div>
+          <code class="slab-face">$ cargo install grr-cli --locked</code>
+        </div>
+        <div class="cta-mascot">
+          <Mascot label="The grr crab mascot celebrating" pose="celebrate" uid="cta" />
+        </div>
+        <div class="slab-contact-shadow" aria-hidden="true"></div>
       </div>
     </div>
   </section>

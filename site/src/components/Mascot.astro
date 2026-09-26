@@ -1,27 +1,46 @@
 ---
-import mascotIdle from '../assets/mascot-idle.svg';
-import mascotWave from '../assets/mascot-wave.svg';
-import mascotSleep from '../assets/mascot-sleep.svg';
-import mascotCelebrate from '../assets/mascot-celebrate.svg';
+import mascotIdle from '../assets/mascot-idle.svg?raw';
+import mascotWave from '../assets/mascot-wave.svg?raw';
+import mascotSleep from '../assets/mascot-sleep.svg?raw';
+import mascotCelebrate from '../assets/mascot-celebrate.svg?raw';
+
+type Pose = 'idle' | 'wave' | 'sleep' | 'celebrate';
 
 interface Props {
   label?: string;
+  variant?: 'single' | 'story';
+  pose?: Pose;
+  uid?: string;
 }
 
-const { label = 'Pixel-art orange crab mascot cycling through four poses' } = Astro.props;
-const poses = [
-  { className: 'mascot-frame-idle', src: mascotIdle.src },
-  { className: 'mascot-frame-wave', src: mascotWave.src },
-  { className: 'mascot-frame-sleep', src: mascotSleep.src },
-  { className: 'mascot-frame-celebrate', src: mascotCelebrate.src },
-];
+const { label = 'Pixel-art orange crab mascot', variant = 'single', pose = 'idle', uid = 'm' } = Astro.props;
+const poses: Record<Pose, string> = {
+  idle: mascotIdle,
+  wave: mascotWave,
+  sleep: mascotSleep,
+  celebrate: mascotCelebrate,
+};
+
+const scopeIds = (raw: string, scope: string) =>
+  raw
+    .replace(/\bid="([^"]+)"/g, (_, id: string) => `id="${scope}-${id}"`)
+    .replace(
+      /\baria-labelledby="([^"]+)"/g,
+      (_, refs: string) => `aria-labelledby="${refs.split(' ').map((ref) => `${scope}-${ref}`).join(' ')}"`,
+    );
 ---
 
-<div class="mascot-wrap" role="img" aria-label={label}>
-  <div class="mascot-sprite" aria-hidden="true">
-    {poses.map((pose) => (
-      <img class={`mascot-frame ${pose.className}`} src={pose.src} alt="" width="512" height="512" decoding="async" />
-    ))}
-    <span class="mascot-blink" aria-hidden="true"></span>
-  </div>
-</div>
+{
+  variant === 'single' ? (
+    <div class="mascot-wrap mascot-single" role="img" aria-label={label} set:html={scopeIds(poses[pose], `${uid}-${pose}`)} />
+  ) : (
+    <div class="mascot-wrap mascot-story" role="img" aria-label={label}>
+      <div class="mascot-sprite" aria-hidden="true">
+        <div class="mascot-frame mascot-frame-wave" set:html={scopeIds(poses.wave, `${uid}-wave`)} />
+        <div class="mascot-frame mascot-frame-idle" set:html={scopeIds(poses.idle, `${uid}-idle`)} />
+        <div class="mascot-frame mascot-frame-sleep" set:html={scopeIds(poses.sleep, `${uid}-sleep`)} />
+        <div class="mascot-frame mascot-frame-celebrate" set:html={scopeIds(poses.celebrate, `${uid}-celebrate`)} />
+      </div>
+    </div>
+  )
+}

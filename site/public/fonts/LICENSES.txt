@@ -1,16 +1,18 @@
 Fonts shipped with the grr site
 
-Departure Mono
-Copyright (c) 2024 Helena Zhang and Tobias Fried
-License: SIL Open Font License 1.1
-Source: https://github.com/rektdeckard/departure-mono
+IBM 3270 (3270-Regular.woff2)
+Copyright 2022 The 3270font Authors (https://github.com/rbanffy/3270font)
+Copyright (c) 2011-2022, Ricardo Banffy.
+Copyright (c) 1993-2011, Paul Mattes.
+Copyright (c) 2004-2005, Don Russell.
+Copyright (c) 2004, Dick Altenbern.
+Copyright (c) 1990, Jeff Sparkes.
+Copyright (c) 1989, Georgia Tech Research Corporation (GTRC), Atlanta, GA 30332.
+License: BSD 3-Clause
+Source: https://github.com/rbanffy/3270font
+License text: https://github.com/rbanffy/3270font/blob/main/LICENSE.txt
 
-Silkscreen
-License: SIL Open Font License 1.1
-Source: https://fonts.google.com/specimen/Silkscreen
-
-VT323
-License: SIL Open Font License 1.1
-Source: https://fonts.google.com/specimen/VT323
-
-The WOFF2 files in this directory are the Latin subsets used by the site.
+The WOFF2 file in this directory is the build of the font used by the site.
+Redistribution and use in source and binary forms are permitted provided that
+the copyright notice, this list of conditions, and the disclaimer are retained
+or reproduced, per the upstream BSD 3-Clause license.

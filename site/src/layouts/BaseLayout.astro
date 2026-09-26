@@ -18,12 +18,12 @@ const relativePath = Astro.url.pathname.startsWith(normalizedBase)
   : Astro.url.pathname.replace(/^\/+/, '');
 const canonical = new URL(`${normalizedBase}${relativePath}`, site).toString();
 const socialImage = new URL(`${normalizedBase}og.svg`, site).toString();
-const fullTitle = title === 'grr' ? 'grr — Google tools from the terminal' : `${title} · grr`;
-const fontVariables = `--font-departure-src:url("${normalizedBase}fonts/departure-mono-latin.woff2");--font-silkscreen-src:url("${normalizedBase}fonts/silkscreen-latin.woff2");--font-vt323-src:url("${normalizedBase}fonts/vt323-latin.woff2")`;
+const fullTitle = title === 'grr' ? 'Rust Rewrite (grr) — Google tools from the terminal' : `${title} · Rust Rewrite (grr)`;
 const jsonLd = JSON.stringify({
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
-  name: 'grr',
+  name: 'Rust Rewrite',
+  alternateName: 'grr',
   applicationCategory: 'DeveloperApplication',
   operatingSystem: 'macOS, Linux, Windows',
   license: 'MIT',
@@ -38,7 +38,7 @@ const jsonLd = JSON.stringify({
 ---
 
 <!doctype html>
-<html lang="en" style={fontVariables}>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <script is:inline>
@@ -61,12 +61,13 @@ const jsonLd = JSON.stringify({
     <meta name="color-scheme" content="light dark" />
     <meta name="google-site-verification" content="eOuATr6yw8ALdCuyHxA_fan3dXicCibqOyHg1ZORrYo" />
     <meta name="robots" content={noindex ? 'noindex, nofollow' : 'index, follow'} />
+    <link rel="preload" href={`${normalizedBase}fonts/3270-Regular.woff2`} as="font" type="font/woff2" crossorigin />
     <link rel="canonical" href={canonical} />
     <link rel="icon" type="image/svg+xml" href={`${normalizedBase}favicon.svg`} sizes="any" />
     <link rel="icon" type="image/svg+xml" href={`${normalizedBase}favicon-32.svg`} sizes="32x32" />
     <link rel="icon" type="image/svg+xml" href={`${normalizedBase}favicon-16.svg`} sizes="16x16" />
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="grr" />
+    <meta property="og:site_name" content="Rust Rewrite" />
     <meta property="og:locale" content="en_US" />
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
@@ -86,6 +87,8 @@ const jsonLd = JSON.stringify({
   </head>
   <body>
     <a class="skip-link" href="#main-content">Skip to content</a>
+    <div class="backdrop" aria-hidden="true"><span class="backdrop-stars-back"></span><span class="backdrop-stars-mid"></span></div>
+    <div class="scroll-progress" aria-hidden="true"></div>
     <div class="site-shell">
       <Header />
       <main id="main-content">

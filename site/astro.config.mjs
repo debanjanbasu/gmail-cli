@@ -9,4 +9,9 @@ export default defineConfig({
     format: 'directory',
   },
   compressHTML: true,
+  vite: {
+    build: {
+      cssMinify: 'esbuild',
+    },
+  },
 });

@@ -45,8 +45,11 @@ const path = (d, fill = 'none', extra = '') =>
 const line = (x1, y1, x2, y2, stroke, width = 4, extra = '') =>
   path(`M${number(x1)} ${number(y1)}L${number(x2)} ${number(y2)}`, 'none', `stroke="${stroke}" stroke-width="${number(width)}" stroke-linecap="square" stroke-linejoin="miter"${extra ? ` ${extra}` : ''}`);
 
-const svgDocument = ({ width, height, viewBox = `0 0 ${width} ${height}`, title, description, body }) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" width="${number(width)}" height="${number(height)}" viewBox="${viewBox}" role="img" aria-labelledby="title desc"><title id="title">${xml(title)}</title><desc id="desc">${xml(description)}</desc>${body}\n</svg>\n`;
+const svgDocument = ({ width, height, viewBox = `0 0 ${width} ${height}`, title, description, body, idPrefix = null }) => {
+  const titleId = idPrefix ? `${idPrefix}-title` : 'title';
+  const descId = idPrefix ? `${idPrefix}-desc` : 'desc';
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${number(width)}" height="${number(height)}" viewBox="${viewBox}" role="img" aria-labelledby="${titleId} ${descId}"><title id="${titleId}">${xml(title)}</title><desc id="${descId}">${xml(description)}</desc>${body}\n</svg>\n`;
+};
 
 const snap4 = (value) => Math.round(value / 4) * 4;
 
@@ -424,21 +427,121 @@ const mapLayer = (map, { x = 0, y = 0, scale = 8 } = {}) => {
   }).join('');
 };
 
-const mascotSvg = (map, name, description) => svgDocument({
-  width: 512,
-  height: 512,
-  viewBox: '0 0 512 512',
-  title: `grr mascot ${name}`,
-  description,
-  body: `${contactShadow(256, 480, 112, 14)}<g shape-rendering="crispEdges">${mapLayer(map)}</g>`
-});
+const extractGroups = (map, groups) => {
+  const base = map.map((row) => [...row]);
+  const layers = groups.map(() => blankMap());
+  groups.forEach((group, groupIndex) => {
+    for (const [x, y, width, height] of group.rects) {
+      for (let py = y; py < y + height; py += 1) {
+        for (let px = x; px < x + width; px += 1) {
+          const color = base[py]?.[px];
+          if (!color || color === '.') continue;
+          layers[groupIndex][py][px] = color;
+          base[py][px] = '.';
+        }
+      }
+    }
+  });
+  return { base, layers };
+};
+
+const CONFETTI_SPOTS = [[4, 5], [8, 3], [17, 3], [25, 1], [32, 2], [42, 3], [55, 4], [59, 11], [4, 18], [60, 22]];
+
+const MASCOT_KEYFRAMES = [
+  '@keyframes m-blink{0%,90.5%,93.5%,100%{transform:scaleY(1)}92%{transform:scaleY(.1)}}',
+  '@keyframes m-lids{0%,100%{opacity:1}50%{opacity:.45}}',
+  '@keyframes m-wave{0%,100%{transform:rotate(-9deg)}50%{transform:rotate(9deg)}}',
+  '@keyframes m-twitch-l{0%,18%,100%{transform:rotate(0deg)}4%{transform:rotate(-8deg)}8%{transform:rotate(4deg)}13%{transform:rotate(-2deg)}}',
+  '@keyframes m-twitch-r{0%,20%,100%{transform:rotate(0deg)}5%{transform:rotate(8deg)}10%{transform:rotate(-4deg)}15%{transform:rotate(2deg)}}',
+  '@keyframes m-z-float{0%{opacity:0;transform:translateY(0)}22%{opacity:.95}60%{opacity:.95}100%{opacity:0;transform:translateY(-18px)}}',
+  '@keyframes m-cf{0%,100%{opacity:1}50%{opacity:.25}}',
+].join('');
+
+const mascotStyle = (rules) =>
+  `<style>@media (prefers-reduced-motion: no-preference){${rules}}${MASCOT_KEYFRAMES}</style>`;
+
+const MASCOT_POSES = {
+  idle: {
+    name: 'idle',
+    description: 'A friendly orange crab resting with chunky raised claws, glossy eyes, a small smile, and a separate soft contact shadow.',
+    groups: [
+      { cls: 'm-ant m-ant-l', rects: [[23, 22, 7, 4]] },
+      { cls: 'm-ant m-ant-r', rects: [[34, 22, 7, 4]] },
+      { cls: 'm-eyes', rects: [[21, 12, 10, 12], [33, 12, 10, 12]] },
+    ],
+    rules: '.m-ant-l{transform-box:fill-box;transform-origin:100% 100%;animation:m-twitch-l 5.2s infinite}.m-ant-r{transform-box:fill-box;transform-origin:0 100%;animation:m-twitch-r 4.6s infinite}.m-eyes{transform-box:fill-box;transform-origin:50% 58%;animation:m-blink 5.4s infinite}',
+  },
+  wave: {
+    name: 'waving',
+    description: 'A friendly orange crab lifting one tiny claw in a wave, shaded with a warm top light.',
+    groups: [
+      { cls: 'm-ant m-ant-l', rects: [[23, 22, 7, 4]] },
+      { cls: 'm-ant m-ant-r', rects: [[34, 22, 7, 4]] },
+      { cls: 'm-claw', rects: [[48, 2, 15, 17]] },
+      { cls: 'm-eyes', rects: [[21, 12, 10, 12], [33, 12, 10, 12]] },
+    ],
+    rules: '.m-ant-l{transform-box:fill-box;transform-origin:100% 100%;animation:m-twitch-l 5.6s infinite}.m-ant-r{transform-box:fill-box;transform-origin:0 100%;animation:m-twitch-r 4.9s infinite}.m-claw{transform-box:fill-box;transform-origin:25% 86%;animation:m-wave 1.15s ease-in-out infinite}.m-eyes{transform-box:fill-box;transform-origin:50% 58%;animation:m-blink 4.6s infinite}',
+  },
+  sleep: {
+    name: 'sleeping',
+    description: 'A friendly orange crab lying down with closed eyes and tiny pixel sleep marks.',
+    groups: [
+      { cls: 'm-eyes', rects: [[23, 31, 7, 2], [34, 31, 7, 2]] },
+      { cls: 'm-z m-z1', rects: [[43, 24, 5, 7]] },
+      { cls: 'm-z m-z2', rects: [[50, 17, 5, 7]] },
+      { cls: 'm-z m-z3', rects: [[56, 10, 5, 7]] },
+    ],
+    rules: '.m-eyes{animation:m-lids 6.5s ease-in-out infinite}.m-z1{animation:m-z-float 3.2s linear -.4s infinite}.m-z2{animation:m-z-float 3.2s linear -1.5s infinite}.m-z3{animation:m-z-float 3.2s linear -2.6s infinite}',
+  },
+  celebrate: {
+    name: 'celebrating',
+    description: 'A joyful orange crab with both claws raised, a wide smile, and small warm confetti pixels.',
+    groups: [
+      ...CONFETTI_SPOTS.map(([x, y], index) => ({
+        cls: `m-cf m-cf${index}`,
+        rects: [[x, y, 2, 2]],
+      })),
+      { cls: 'm-ant m-ant-l', rects: [[23, 22, 7, 4]] },
+      { cls: 'm-ant m-ant-r', rects: [[34, 22, 7, 4]] },
+      { cls: 'm-eyes', rects: [[21, 12, 10, 12], [33, 12, 10, 12]] },
+    ],
+    rules: [
+      '.m-eyes{transform-box:fill-box;transform-origin:50% 58%;animation:m-blink 4.2s infinite}',
+      '.m-ant-l{transform-box:fill-box;transform-origin:100% 100%;animation:m-twitch-l 5.1s infinite}',
+      '.m-ant-r{transform-box:fill-box;transform-origin:0 100%;animation:m-twitch-r 4.4s infinite}',
+      ...CONFETTI_SPOTS.map(([, ], index) => `.m-cf${index}{animation:m-cf ${(1.3 + (index % 5) * 0.22).toFixed(2)}s ease-in-out ${(-(index * 0.17)).toFixed(2)}s infinite}`),
+    ].join(''),
+  },
+};
+
+const mascotSvg = (pose) => {
+  const config = MASCOT_POSES[pose];
+  const { base, layers } = extractGroups(ASCII_MAPS[pose], config.groups);
+  const groups = config.groups
+    .map((group, index) => `<g class="${group.cls}" shape-rendering="crispEdges">${mapLayer(layers[index])}${group.smil ?? ''}</g>`)
+    .join('');
+  return svgDocument({
+    width: 512,
+    height: 512,
+    viewBox: '0 0 512 512',
+    idPrefix: `mascot-${pose}`,
+    title: `grr mascot ${config.name}`,
+    description: config.description,
+    body: `${contactShadow(256, 480, 112, 14)}${mascotStyle(config.rules)}<g shape-rendering="crispEdges">${mapLayer(base)}</g>${groups}`,
+  });
+};
 
 const terminalCrab = (map, x, y, scale) => `<g shape-rendering="crispEdges">${mapLayer(map, { x, y, scale })}</g>`;
 
+const htBar = (x, y, width, fill, steps, delay) =>
+  `<path class="ht-ln" d="M${number(x)} ${number(y + 8)}h${number(width)}" fill="none" stroke="${fill}" stroke-width="16" pathLength="100" style="--steps:${number(steps)};--ln-delay:${number(delay)}ms"/>`;
+
 const heroTerminal = () => {
   const idle = ASCII_MAPS.idle;
-  const body = `${contactShadow(480, 568, 348, 28)}<g shape-rendering="crispEdges">${polygon([[96, 448], [184, 584], [832, 504], [856, 192], [760, 96], [128, 160]], PALETTE_LEGEND.o)}${polygon([[112, 448], [192, 568], [816, 496], [840, 200], [752, 112], [144, 168]], PALETTE_LEGEND.d)}${polygon([[128, 160], [760, 96], [864, 200], [232, 280]], PALETTE_LEGEND.m)}${polygon([[144, 160], [752, 104], [824, 176], [232, 248]], PALETTE_LEGEND.b)}${polygon([[160, 160], [744, 112], [768, 132], [208, 184]], PALETTE_LEGEND.p)}${polygon([[96, 448], [128, 160], [232, 280], [192, 568]], PALETTE_LEGEND.s)}${polygon([[112, 432], [144, 192], [208, 288], [184, 520]], PALETTE_LEGEND.d)}${polygon([[232, 280], [864, 200], [832, 504], [192, 584]], PALETTE_LEGEND.o)}${polygon([[248, 288], [840, 216], [812, 480], [216, 544]], PALETTE_LEGEND.c)}${polygon([[256, 300], [824, 228], [800, 468], [232, 532]], PALETTE_LEGEND.p, 'opacity=".14"')}${polygon([[248, 288], [840, 216], [832, 248], [256, 320]], PALETTE_LEGEND.h)}${polygon([[264, 312], [792, 248], [768, 448], [240, 512]], PALETTE_LEGEND.k)}${polygon([[280, 328], [776, 268], [760, 420], [264, 480]], PALETTE_LEGEND.k)}${polygon([[288, 336], [768, 280], [760, 332], [288, 388]], PALETTE_LEGEND.s, 'opacity=".5"')}${rect(320, 352, 32, 24, PALETTE_LEGEND.p)}${rect(376, 344, 128, 16, PALETTE_LEGEND.w)}${rect(376, 376, 200, 16, PALETTE_LEGEND.d)}${rect(320, 408, 176, 16, PALETTE_LEGEND.b)}${rect(536, 400, 160, 16, PALETTE_LEGEND.m)}${rect(320, 440, 104, 16, PALETTE_LEGEND.h)}${rect(456, 432, 208, 16, PALETTE_LEGEND.s)}${rect(696, 440, 32, 24, PALETTE_LEGEND.w)}${rect(224, 536, 48, 16, PALETTE_LEGEND.d)}${rect(712, 464, 64, 16, PALETTE_LEGEND.p)}${rect(624, 472, 56, 16, PALETTE_LEGEND.b)}${terminalCrab(idle, 664, 0, 3)}${rect(128, 128, 64, 8, PALETTE_LEGEND.h, 'opacity=".8"')}</g>`;
-  return svgDocument({ width: 960, height: 640, viewBox: '0 0 960 640', title: 'grr terminal', description: 'A dimensional cream and orange terminal with a glowing screen and a tiny crab perched on its top edge.', body });
+  const frame = `${polygon([[96, 448], [184, 584], [832, 504], [856, 192], [760, 96], [128, 160]], PALETTE_LEGEND.o)}${polygon([[112, 448], [192, 568], [816, 496], [840, 200], [752, 112], [144, 168]], PALETTE_LEGEND.d)}${polygon([[128, 160], [760, 96], [864, 200], [232, 280]], PALETTE_LEGEND.m)}${polygon([[144, 160], [752, 104], [824, 176], [232, 248]], PALETTE_LEGEND.b)}${polygon([[160, 160], [744, 112], [768, 132], [208, 184]], PALETTE_LEGEND.p)}${polygon([[96, 448], [128, 160], [232, 280], [192, 568]], PALETTE_LEGEND.s)}${polygon([[112, 432], [144, 192], [208, 288], [184, 520]], PALETTE_LEGEND.d)}${polygon([[232, 280], [864, 200], [832, 504], [192, 584]], PALETTE_LEGEND.o)}${polygon([[248, 288], [840, 216], [812, 480], [216, 544]], PALETTE_LEGEND.c)}${polygon([[256, 300], [824, 228], [800, 468], [232, 532]], PALETTE_LEGEND.p, 'class="ht-glow" opacity=".14"')}${polygon([[248, 288], [840, 216], [832, 248], [256, 320]], PALETTE_LEGEND.h)}${polygon([[264, 312], [792, 248], [768, 448], [240, 512]], PALETTE_LEGEND.k)}${polygon([[280, 328], [776, 268], [760, 420], [264, 480]], PALETTE_LEGEND.k)}${polygon([[288, 336], [768, 280], [760, 332], [288, 388]], PALETTE_LEGEND.s, 'opacity=".5"')}${rect(224, 536, 48, 16, PALETTE_LEGEND.d)}${rect(712, 464, 64, 16, PALETTE_LEGEND.p)}${rect(624, 472, 56, 16, PALETTE_LEGEND.b)}${rect(128, 128, 64, 8, PALETTE_LEGEND.h, 'opacity=".8"')}`;
+  const lines = `${rect(320, 352, 32, 24, PALETTE_LEGEND.p, `class="ht-prompt" pathLength="100" stroke="${PALETTE_LEGEND.p}" stroke-width="6"`)}${htBar(376, 344, 128, PALETTE_LEGEND.w, 8, 140)}${htBar(376, 376, 200, PALETTE_LEGEND.d, 13, 280)}${htBar(320, 408, 176, PALETTE_LEGEND.b, 11, 420)}${htBar(536, 400, 160, PALETTE_LEGEND.m, 10, 480)}${htBar(320, 440, 104, PALETTE_LEGEND.h, 7, 620)}${htBar(456, 432, 208, PALETTE_LEGEND.s, 13, 700)}${rect(696, 440, 32, 24, PALETTE_LEGEND.w, 'class="ht-caret"')}`;
+  const body = `${contactShadow(480, 568, 348, 28)}<g class="ht-frame" shape-rendering="crispEdges">${frame}</g><g class="ht-lines" shape-rendering="crispEdges">${lines}</g><g class="ht-crab">${terminalCrab(idle, 664, 0, 3)}</g>`;
+  return svgDocument({ width: 960, height: 640, viewBox: '0 0 960 640', idPrefix: 'ht', title: 'grr terminal', description: 'A dimensional cream and orange terminal with a glowing screen and a tiny crab perched on its top edge.', body });
 };
 
 const artMail = () => svgDocument({
@@ -621,10 +724,10 @@ const ASCII_MAPS = Object.freeze(Object.fromEntries(
 ));
 
 const files = new Map([
-  [resolve(assetDirectory, 'mascot-idle.svg'), mascotSvg(ASCII_MAPS.idle, 'idle', 'A friendly orange crab resting with chunky raised claws, glossy eyes, a small smile, and a separate soft contact shadow.')],
-  [resolve(assetDirectory, 'mascot-wave.svg'), mascotSvg(ASCII_MAPS.wave, 'waving', 'A friendly orange crab lifting one tiny claw in a wave, shaded with a warm top light.')],
-  [resolve(assetDirectory, 'mascot-sleep.svg'), mascotSvg(ASCII_MAPS.sleep, 'sleeping', 'A friendly orange crab lying down with closed eyes and tiny pixel sleep marks.')],
-  [resolve(assetDirectory, 'mascot-celebrate.svg'), mascotSvg(ASCII_MAPS.celebrate, 'celebrating', 'A joyful orange crab with both claws raised, a wide smile, and small warm confetti pixels.')],
+  [resolve(assetDirectory, 'mascot-idle.svg'), mascotSvg('idle')],
+  [resolve(assetDirectory, 'mascot-wave.svg'), mascotSvg('wave')],
+  [resolve(assetDirectory, 'mascot-sleep.svg'), mascotSvg('sleep')],
+  [resolve(assetDirectory, 'mascot-celebrate.svg'), mascotSvg('celebrate')],
   [resolve(assetDirectory, 'hero-terminal.svg'), heroTerminal()],
   [resolve(assetDirectory, 'art-mail.svg'), artMail()],
   [resolve(assetDirectory, 'art-calendar.svg'), artCalendar()],
